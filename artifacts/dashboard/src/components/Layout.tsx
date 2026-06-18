@@ -147,7 +147,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Notifications panel */}
       {notifPanel && (
-        <div className="fixed z-40 left-64 bottom-16 w-80 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden"
+        <div className="fixed z-40 left-0 right-0 bottom-0 mx-2 mb-2 lg:left-64 lg:right-auto lg:mx-0 lg:bottom-16 w-auto lg:w-80 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden"
           style={{ maxHeight: '400px' }}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <span className="font-semibold text-sm">Notificações</span>

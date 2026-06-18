@@ -9,12 +9,12 @@ import {
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { label: string; cls: string; dot: string }> = {
-    connected: { label: 'Conectado', cls: 'bg-green-100 text-green-700', dot: 'bg-green-500 animate-pulse' },
-    connecting: { label: 'Conectando...', cls: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' },
-    qr: { label: 'Aguard. QR', cls: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500 animate-pulse' },
-    disconnected: { label: 'Desconectado', cls: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' },
+    connected: { label: 'Conectado', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', dot: 'bg-green-500 animate-pulse' },
+    connecting: { label: 'Conectando...', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', dot: 'bg-yellow-500' },
+    qr: { label: 'Aguard. QR', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', dot: 'bg-blue-500 animate-pulse' },
+    disconnected: { label: 'Desconectado', cls: 'bg-muted text-muted-foreground', dot: 'bg-muted-foreground/50' },
   };
-  const c = cfg[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' };
+  const c = cfg[status] ?? { label: status, cls: 'bg-muted text-muted-foreground', dot: 'bg-muted-foreground/50' };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${c.cls}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
@@ -26,8 +26,8 @@ function StatusBadge({ status }: { status: string }) {
 function QRModal({ qr, onClose }: { qr: string | null; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+      <div className="bg-card text-card-foreground rounded-2xl shadow-2xl w-full max-w-sm border border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <h2 className="font-semibold">Conectar via QR Code</h2>
             <p className="text-xs text-muted-foreground mt-0.5">Escaneie com seu WhatsApp</p>
@@ -90,8 +90,8 @@ function PairingCodeModal({ deviceId, onClose }: { deviceId: number; onClose: ()
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+      <div className="bg-card text-card-foreground rounded-2xl shadow-2xl w-full max-w-sm border border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <h2 className="font-semibold">Conectar via Código</h2>
             <p className="text-xs text-muted-foreground mt-0.5">Sem precisar escanear QR Code</p>
@@ -114,7 +114,7 @@ function PairingCodeModal({ deviceId, onClose }: { deviceId: number; onClose: ()
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="5511999999999 (com código do país)"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   type="tel"
                 />
                 <p className="text-xs text-muted-foreground mt-1">Inclua o código do país. Brasil: 55 + DDD + número</p>
@@ -178,8 +178,8 @@ function NewDeviceModal({ agents, onClose }: { agents: Agent[]; onClose: () => v
   });
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+      <div className="bg-card text-card-foreground rounded-2xl shadow-2xl w-full max-w-sm border border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-semibold">Novo dispositivo</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
         </div>
@@ -187,13 +187,13 @@ function NewDeviceModal({ agents, onClose }: { agents: Agent[]; onClose: () => v
           <div>
             <label className="text-sm font-medium mb-1 block">Nome do dispositivo</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Número principal"
-              className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
           <div>
             <label className="text-sm font-medium mb-1 block">Agente de IA (opcional)</label>
             <div className="relative">
               <select value={agentId} onChange={e => setAgentId(e.target.value)}
-                className="w-full px-3 py-2 pr-8 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none bg-white">
+                className="w-full px-3 py-2 pr-8 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none">
                 <option value="">Nenhum</option>
                 {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
@@ -271,8 +271,8 @@ export default function DevicesPage() {
   });
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 lg:p-6 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <div>
           <h1 className="text-xl font-bold">Dispositivos WhatsApp</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{devices.length} dispositivo{devices.length !== 1 ? 's' : ''}</p>
@@ -286,7 +286,7 @@ export default function DevicesPage() {
       {isLoading && <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}
 
       {!isLoading && devices.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-xl border border-border">
+        <div className="text-center py-16 bg-card rounded-xl border border-border">
           <Smartphone className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
           <p className="font-medium">Nenhum dispositivo cadastrado</p>
           <p className="text-sm text-muted-foreground mt-1">Clique em "Novo dispositivo" para adicionar um número</p>
@@ -297,10 +297,10 @@ export default function DevicesPage() {
         {devices.map(d => {
           const agent = agents.find(a => a.id === d.agent_id);
           return (
-            <div key={d.id} className="bg-white rounded-xl border border-border p-5">
+            <div key={d.id} className="bg-card rounded-xl border border-border p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${d.status === 'connected' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${d.status === 'connected' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
                     <Smartphone className="w-5 h-5" />
                   </div>
                   <div>

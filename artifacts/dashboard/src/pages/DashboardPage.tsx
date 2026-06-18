@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number | string; color: string }) {
   return (
-    <div className="bg-white rounded-xl p-5 border border-border shadow-sm flex items-center gap-4">
+    <div className="bg-card rounded-xl p-5 border border-border shadow-sm flex items-center gap-4">
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
         <Icon className="w-6 h-6" />
       </div>
@@ -19,11 +19,11 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 
 function DeviceStatus({ status }: { status: string }) {
   const cfg = {
-    connected: { label: 'Conectado', cls: 'bg-green-100 text-green-700', dot: 'bg-green-500' },
-    connecting: { label: 'Conectando', cls: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' },
-    qr: { label: 'Aguard. QR', cls: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
-    disconnected: { label: 'Desconectado', cls: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' },
-  }[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' };
+    connected: { label: 'Conectado', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', dot: 'bg-green-500' },
+    connecting: { label: 'Conectando', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', dot: 'bg-yellow-500' },
+    qr: { label: 'Aguard. QR', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', dot: 'bg-blue-500' },
+    disconnected: { label: 'Desconectado', cls: 'bg-muted text-muted-foreground', dot: 'bg-muted-foreground/50' },
+  }[status] ?? { label: status, cls: 'bg-muted text-muted-foreground', dot: 'bg-muted-foreground/50' };
 
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.cls}`}>
@@ -77,7 +77,7 @@ export default function DashboardPage() {
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Devices */}
-        <div className="bg-white rounded-xl border border-border shadow-sm">
+        <div className="bg-card rounded-xl border border-border shadow-sm">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="font-semibold text-sm">Dispositivos WhatsApp</h2>
           </div>
@@ -103,7 +103,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent conversations */}
-        <div className="bg-white rounded-xl border border-border shadow-sm">
+        <div className="bg-card rounded-xl border border-border shadow-sm">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="font-semibold text-sm">Conversas recentes</h2>
           </div>
@@ -134,7 +134,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Traffic */}
-      <div className="bg-white rounded-xl border border-border shadow-sm p-5">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-5">
         <h2 className="font-semibold text-sm mb-4">Tráfego de mensagens</h2>
         <div className="flex gap-6">
           <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export default function DashboardPage() {
             <span className="text-sm text-muted-foreground">Enviadas: <span className="font-semibold text-foreground">{msgOut}</span></span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gray-300" />
+            <div className="w-3 h-3 rounded-full bg-muted-foreground/40" />
             <span className="text-sm text-muted-foreground">Total: <span className="font-semibold text-foreground">{messages.length}</span></span>
           </div>
         </div>

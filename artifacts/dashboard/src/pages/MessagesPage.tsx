@@ -90,7 +90,7 @@ export default function MessagesPage() {
   return (
     <div className="flex h-full">
       {/* Sidebar list */}
-      <div className={`flex flex-col border-r border-border bg-white ${selectedJid ? 'hidden md:flex' : 'flex'} w-full md:w-72 lg:w-80 shrink-0`}>
+      <div className={`flex flex-col border-r border-border bg-card ${selectedJid ? 'hidden md:flex' : 'flex'} w-full md:w-72 lg:w-80 shrink-0`}>
         <div className="p-3 border-b border-border">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -129,7 +129,7 @@ export default function MessagesPage() {
       </div>
 
       {/* Conversation */}
-      <div className="flex-1 flex flex-col" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2325D366' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")", backgroundColor: '#f0f2f5' }}>
+      <div className="flex-1 flex flex-col bg-muted/30" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2325D366' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")">
         {!selectedJid ? (
           <div className="hidden md:flex flex-1 items-center justify-center flex-col gap-3 text-muted-foreground">
             <MessageSquare className="w-14 h-14 opacity-20" />
@@ -139,7 +139,7 @@ export default function MessagesPage() {
         ) : (
           <>
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-border shadow-sm">
+            <div className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border shadow-sm">
               <button onClick={() => setSelectedJid(null)} className="md:hidden p-1.5 rounded-lg hover:bg-muted text-muted-foreground">←</button>
               <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">
                 {getContactName(selectedJid)[0].toUpperCase()}
@@ -152,7 +152,7 @@ export default function MessagesPage() {
               {connectedDevices.length > 1 && (
                 <div className="relative">
                   <select value={selectedDevice ?? ''} onChange={e => setSelectedDevice(Number(e.target.value))}
-                    className="text-xs border border-border rounded-lg px-2 py-1.5 pr-6 appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    className="text-xs border border-border rounded-lg px-2 py-1.5 pr-6 appearance-none bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
                     {connectedDevices.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                   <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none text-muted-foreground" />
@@ -175,7 +175,7 @@ export default function MessagesPage() {
                   <div key={m.id}>
                     {showDate && (
                       <div className="flex justify-center my-3">
-                        <span className="text-xs bg-white/80 text-muted-foreground px-3 py-1 rounded-full shadow-sm">
+                        <span className="text-xs bg-card/90 text-muted-foreground px-3 py-1 rounded-full shadow-sm">
                           {formatDate(m.created_at)}
                         </span>
                       </div>
@@ -184,7 +184,7 @@ export default function MessagesPage() {
                       <div className={`max-w-[75%] px-3.5 py-2 rounded-2xl text-sm shadow-sm ${
                         m.direction === 'out'
                           ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                          : 'bg-white text-foreground rounded-tl-sm'
+                          : 'bg-card text-foreground rounded-tl-sm'
                       }`}>
                         <p className="whitespace-pre-wrap break-words leading-relaxed">{m.body ?? `[${m.msg_type}]`}</p>
                         <p className={`text-[10px] mt-0.5 text-right ${m.direction === 'out' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
@@ -199,7 +199,7 @@ export default function MessagesPage() {
             </div>
 
             {/* Input */}
-            <div className="bg-white border-t border-border px-4 py-3">
+            <div className="bg-card border-t border-border px-4 py-3">
               {connectedDevices.length === 0 ? (
                 <div className="text-center text-sm text-amber-600 py-1">
                   Conecte um dispositivo WhatsApp para enviar mensagens

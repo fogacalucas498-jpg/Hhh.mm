@@ -26,13 +26,13 @@ export default function ContactsPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Buscar por nome ou telefone..."
-          className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white" />
+          className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
       </div>
 
       {isLoading && <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}
 
       {!isLoading && contacts.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-xl border border-border">
+        <div className="text-center py-16 bg-card rounded-xl border border-border">
           <Users className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
           <p className="font-medium">{search ? 'Nenhum resultado' : 'Nenhum contato ainda'}</p>
           <p className="text-sm text-muted-foreground mt-1">Os contatos aparecem automaticamente quando mensagens chegam</p>
@@ -41,7 +41,7 @@ export default function ContactsPage() {
 
       <div className="grid sm:grid-cols-2 gap-3">
         {contacts.map(c => (
-          <div key={c.id} className="bg-white rounded-xl border border-border p-4 flex items-center gap-3">
+          <div key={c.id} className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold shrink-0">
               {(c.name ?? c.phone ?? '?')[0].toUpperCase()}
             </div>

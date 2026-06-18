@@ -18,8 +18,8 @@ function FlowModal({ agents, onClose }: { agents: Agent[]; onClose: () => void }
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+      <div className="bg-card text-card-foreground rounded-2xl shadow-2xl w-full max-w-md border border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-semibold">Novo fluxo</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
         </div>
@@ -28,7 +28,7 @@ function FlowModal({ agents, onClose }: { agents: Agent[]; onClose: () => void }
             <label className="text-sm font-medium mb-1 block">Agente</label>
             <div className="relative">
               <select value={form.agentId} onChange={e => set('agentId', e.target.value)} required
-                className="w-full px-3 py-2 pr-8 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none bg-white">
+                className="w-full px-3 py-2 pr-8 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none">
                 <option value="">Selecione um agente</option>
                 {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
@@ -50,7 +50,7 @@ function FlowModal({ agents, onClose }: { agents: Agent[]; onClose: () => void }
               <label className="text-sm font-medium mb-1 block">Modo</label>
               <div className="relative">
                 <select value={form.triggerMode} onChange={e => set('triggerMode', e.target.value)}
-                  className="w-full px-3 py-2 pr-8 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none bg-white">
+                  className="w-full px-3 py-2 pr-8 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none">
                   <option value="exact">Exato</option>
                   <option value="contains">Contém</option>
                 </select>
@@ -129,7 +129,7 @@ export default function FlowsPage() {
       {isLoading && <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}
 
       {!isLoading && flows.length === 0 && agents.length > 0 && (
-        <div className="text-center py-16 bg-white rounded-xl border border-border">
+        <div className="text-center py-16 bg-card rounded-xl border border-border">
           <Zap className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
           <p className="font-medium">Nenhum fluxo criado</p>
           <p className="text-sm text-muted-foreground mt-1">Fluxos respondem automaticamente a palavras-chave</p>
@@ -140,8 +140,8 @@ export default function FlowsPage() {
         {flows.map(f => {
           const agent = agents.find(a => a.id === f.agent_id);
           return (
-            <div key={f.id} className="bg-white rounded-xl border border-border p-4 flex items-center gap-4">
-              <div className="w-9 h-9 rounded-xl bg-yellow-100 text-yellow-600 flex items-center justify-center shrink-0">
+            <div key={f.id} className="bg-card rounded-xl border border-border p-4 flex items-center gap-4">
+              <div className="w-9 h-9 rounded-xl bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400 flex items-center justify-center shrink-0">
                 <Zap className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
@@ -154,7 +154,7 @@ export default function FlowsPage() {
                   {agent && <> · Agente: {agent.name}</>}
                 </p>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${f.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${f.enabled ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
                 {f.enabled ? 'Ativo' : 'Inativo'}
               </span>
               <button onClick={() => { if (confirm('Deletar fluxo?')) deleteFlow.mutate({ agentId: f.agent_id, flowId: f.id }); }}

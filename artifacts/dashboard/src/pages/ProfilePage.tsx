@@ -54,6 +54,31 @@ export default function ProfilePage() {
     ? user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
     : '?';
 
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX_SIZE = 400;
+        let { width, height } = img;
+        if (width > height) {
+          if (width > MAX_SIZE) { height = Math.round(height * MAX_SIZE / width); width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width = Math.round(width * MAX_SIZE / height); height = MAX_SIZE; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  };
+
   const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -61,29 +86,25 @@ export default function ProfilePage() {
       setProfileMsg({ type: 'err', text: 'Selecione um arquivo de imagem.' });
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setProfileMsg({ type: 'err', text: 'Imagem deve ter menos de 2MB.' });
+    if (file.size > 10 * 1024 * 1024) {
+      setProfileMsg({ type: 'err', text: 'Imagem deve ter menos de 10MB.' });
       return;
     }
     setAvatarLoading(true);
     setProfileMsg(null);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result as string;
+    try {
+      const dataUrl = await compressImage(file);
       setAvatarPreview(dataUrl);
       setProfile(p => ({ ...p, avatar_url: dataUrl }));
-      // Auto-save avatar immediately
-      try {
-        await api.patch('/auth/profile', { avatar_url: dataUrl });
-        await refreshUser();
-        setProfileMsg({ type: 'ok', text: 'Foto de perfil atualizada!' });
-      } catch (err) {
-        setProfileMsg({ type: 'err', text: err instanceof ApiError ? err.message : 'Erro ao salvar foto.' });
-      } finally {
-        setAvatarLoading(false);
-      }
-    };
-    reader.readAsDataURL(file);
+      await api.patch('/auth/profile', { avatar_url: dataUrl });
+      await refreshUser();
+      setProfileMsg({ type: 'ok', text: 'Foto de perfil atualizada!' });
+    } catch (err) {
+      setProfileMsg({ type: 'err', text: err instanceof ApiError ? err.message : 'Erro ao salvar foto.' });
+    } finally {
+      setAvatarLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const removeAvatar = async () => {
@@ -194,7 +215,7 @@ export default function ProfilePage() {
                 Remover foto
               </button>
             )}
-            <p className="text-xs text-muted-foreground">JPG, PNG ou GIF. Máximo 2MB.</p>
+            <p className="text-xs text-muted-foreground">JPG, PNG ou GIF. Máximo 10MB. A imagem será redimensionada automaticamente.</p>
           </div>
         </div>
         {profileMsg && <div className="mt-3"><Alert type={profileMsg.type} text={profileMsg.text} /></div>}
