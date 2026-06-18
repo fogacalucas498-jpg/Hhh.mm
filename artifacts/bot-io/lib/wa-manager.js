@@ -292,6 +292,7 @@ async function startDevice(userId, deviceId) {
   const sessionDir = path.join(SESSIONS_DIR, `device_${deviceId}`);
   fs.mkdirSync(sessionDir, { recursive: true });
 
+  let isDestroyed = false;
   const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
   const version = await getBaileysVersion();
 
@@ -300,7 +301,12 @@ async function startDevice(userId, deviceId) {
     logger,
     auth: state,
     printQRInTerminal: false,
-    browser: ['bot 777 🎰', 'Chrome', '1.0.0'],
+    browser: ['Chrome (Linux)', 'Chrome', '120.0.0'],
+    connectTimeoutMs: 30_000,
+    keepAliveIntervalMs: 15_000,
+    retryRequestDelayMs: 500,
+    syncFullHistory: false,
+    generateHighQualityLinkPreview: false,
   });
 
   const entry = { sock, status: 'connecting', userId, deviceId, qr: null };
@@ -309,7 +315,13 @@ async function startDevice(userId, deviceId) {
   await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['connecting', deviceId]);
   emitSse(userId, 'device_status', { deviceId, status: 'connecting' });
 
-  sock.ev.on('creds.update', saveCreds);
+  // Safe saveCreds — never crashes if session dir was already deleted
+  sock.ev.on('creds.update', async (...args) => {
+    if (isDestroyed) return;
+    try { await saveCreds(...args); } catch (e) {
+      if (!isDestroyed) appLogger.warn({ event: 'save_creds_error', deviceId, err: e.message });
+    }
+  });
 
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr) {
@@ -338,6 +350,7 @@ async function startDevice(userId, deviceId) {
     }
 
     if (connection === 'close') {
+      if (isDestroyed) return;
       const code = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = code !== DisconnectReason.loggedOut;
       entry.status = 'disconnected';
@@ -347,15 +360,14 @@ async function startDevice(userId, deviceId) {
 
       if (shouldReconnect) {
         await new Promise(r => setTimeout(r, 5000));
-        // Don't reconnect if a pairing code session took over this slot
         const current = sockets.get(k);
         if (current && current.isPairing) return;
-        // Don't reconnect if already connected by another path
         if (current && current.status === 'connected') return;
         startDevice(userId, deviceId).catch(e =>
           appLogger.error({ event: 'reconnect_failed', deviceId, err: e.message })
         );
       } else {
+        isDestroyed = true;
         sockets.delete(k);
         const sessionDir2 = path.join(SESSIONS_DIR, `device_${deviceId}`);
         fs.rmSync(sessionDir2, { recursive: true, force: true });
@@ -447,19 +459,31 @@ setInterval(cleanDebounceOrphans, 5 * 60 * 1000).unref();
 async function getPairingCode(userId, deviceId, phoneNumber) {
   const k = key(deviceId);
 
-  const existing = sockets.get(k);
-  if (existing && existing.status === 'connected') {
-    throw new Error('Dispositivo já conectado. Faça logout primeiro para reconectar via código.');
+  // Validate phone number upfront
+  const clean = phoneNumber.replace(/[^0-9]/g, '');
+  if (clean.length < 10) {
+    throw new Error('Número inválido. Use o formato internacional sem + (ex: 5511999999999).');
   }
 
+  // Kill any existing socket for this device
+  const existing = sockets.get(k);
   if (existing) {
+    if (existing.status === 'connected') {
+      throw new Error('Dispositivo já conectado. Faça logout primeiro para reconectar via código.');
+    }
     try { existing.sock.end(); } catch (_) {}
     sockets.delete(k);
+    // Wait for the old socket to fully close before deleting its session
+    await new Promise(r => setTimeout(r, 600));
   }
 
+  // Fresh session directory
   const sessionDir = path.join(SESSIONS_DIR, `device_${deviceId}`);
   fs.rmSync(sessionDir, { recursive: true, force: true });
   fs.mkdirSync(sessionDir, { recursive: true });
+
+  // Destroyed flag — prevents saveCreds crashing after cleanup
+  let isDestroyed = false;
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
   const version = await getBaileysVersion();
@@ -471,6 +495,11 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
     printQRInTerminal: false,
     browser: ['Chrome (Linux)', 'Chrome', '120.0.0'],
     mobile: false,
+    connectTimeoutMs: 30_000,
+    keepAliveIntervalMs: 15_000,    // Prevents 408 connectionLost on Replit
+    retryRequestDelayMs: 500,
+    syncFullHistory: false,
+    generateHighQualityLinkPreview: false,
   });
 
   const entry = { sock, status: 'connecting', userId, deviceId, qr: null, isPairing: true };
@@ -479,13 +508,33 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
   await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['connecting', deviceId]);
   emitSse(userId, 'device_status', { deviceId, status: 'connecting' });
 
-  sock.ev.on('creds.update', saveCreds);
+  // --- Safe saveCreds: silently skips if session dir was already deleted ---
+  sock.ev.on('creds.update', async (...args) => {
+    if (isDestroyed) return;
+    try { await saveCreds(...args); } catch (e) {
+      if (!isDestroyed) appLogger.warn({ event: 'pairing_save_creds_error', deviceId, err: e.message });
+    }
+  });
 
+  // --- Cleanup helper: idempotent, marks isDestroyed to gate saveCreds ---
+  const cleanup = async () => {
+    if (isDestroyed) return;
+    isDestroyed = true;
+    sockets.delete(k);
+    try { sock.end(); } catch (_) {}
+    // Give any pending saveCreds calls a moment to see isDestroyed before we delete
+    await new Promise(r => setTimeout(r, 100));
+    fs.rmSync(sessionDir, { recursive: true, force: true });
+    await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId])
+      .catch(() => {});
+    emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
+  };
+
+  // --- Connection lifecycle handler ---
   sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
     if (connection === 'open') {
       entry.status = 'connected';
       entry.isPairing = false;
-      entry.qr = null;
       const phone = sock.user?.id?.split(':')[0] || null;
       await db.query(
         'UPDATE agent_devices SET status=$1, phone=$2, updated_at=NOW() WHERE id=$3',
@@ -513,71 +562,80 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
           }
         }
       });
+      return;
     }
+
     if (connection === 'close') {
+      if (isDestroyed) return; // Already handled elsewhere
       const code = lastDisconnect?.error?.output?.statusCode;
       const isLoggedOut = code === DisconnectReason.loggedOut;
-      entry.status = 'disconnected';
-      await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId]);
-      emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
       appLogger.info({ event: 'device_disconnected_pairing', deviceId, code });
 
-      if (isLoggedOut) {
-        sockets.delete(k);
-        fs.rmSync(sessionDir, { recursive: true, force: true });
-      } else if (!entry.isPairing) {
-        // Only auto-reconnect if pairing was already completed (device was connected before)
+      if (entry.isPairing) {
+        // Code not yet entered — clean up without reconnecting
+        await cleanup();
+      } else if (isLoggedOut) {
+        // Explicitly logged out after successful pairing
+        await cleanup();
+      } else {
+        // Lost connection after device was fully paired — reconnect via startDevice
+        entry.status = 'disconnected';
+        await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId])
+          .catch(() => {});
+        emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
         await new Promise(r => setTimeout(r, 5000));
+        const current = sockets.get(k);
+        if (current && (current.isPairing || current.status === 'connected')) return;
         startDevice(userId, deviceId).catch(e =>
           appLogger.error({ event: 'reconnect_failed_pairing', deviceId, err: e.message })
         );
-      } else {
-        // Pairing failed – clean up without auto-reconnecting
-        sockets.delete(k);
-        fs.rmSync(sessionDir, { recursive: true, force: true });
       }
     }
   });
 
-  const clean = phoneNumber.replace(/[^0-9]/g, '');
-  if (clean.length < 10) {
-    throw new Error('Número inválido. Use o formato internacional sem + (ex: 5511999999999).');
-  }
-
-  // Wait for WebSocket to establish connection with WhatsApp servers
-  // Uses an event-driven approach with a 15s timeout fallback
+  // --- Wait for WebSocket to reach 'connecting' state ---
+  // Baileys fires this quickly after socket creation (usually < 500ms).
+  // We use a flag-based guard so the listener no-ops after resolving.
+  let connectingResolved = false;
   await new Promise((resolve) => {
-    let resolved = false;
-    const done = () => { if (!resolved) { resolved = true; resolve(); } };
+    const fallback = setTimeout(() => {
+      if (!connectingResolved) { connectingResolved = true; resolve(); }
+    }, 12_000);
 
-    // Resolve as soon as the connection event fires (connecting state)
-    const unsub = sock.ev.on('connection.update', ({ connection }) => {
-      if (connection === 'connecting' || connection === 'open') {
-        done();
+    sock.ev.on('connection.update', ({ connection }) => {
+      if (connectingResolved) return;
+      if (connection === 'connecting') {
+        connectingResolved = true;
+        clearTimeout(fallback);
+        resolve();
+      } else if (connection === 'close') {
+        connectingResolved = true;
+        clearTimeout(fallback);
+        resolve(); // Socket closed early — will be caught by isDestroyed check below
       }
     });
-
-    // Fallback: resolve after 8 seconds regardless
-    setTimeout(() => {
-      try { if (unsub && typeof unsub === 'function') unsub(); } catch (_) {}
-      done();
-    }, 8000);
   });
 
-  // Extra buffer to let the WebSocket fully handshake
+  // Abort if socket closed before we could request the code
+  if (isDestroyed) {
+    throw new Error('Falha na conexão com WhatsApp. Tente novamente em alguns segundos.');
+  }
+
+  // Small buffer to let the WebSocket handshake stabilize with WhatsApp servers
   await new Promise(r => setTimeout(r, 1500));
 
+  if (isDestroyed) {
+    throw new Error('Falha na conexão com WhatsApp. Tente novamente em alguns segundos.');
+  }
+
   try {
+    appLogger.info({ event: 'pairing_code_requesting', deviceId, phone: clean });
     const code = await sock.requestPairingCode(clean);
+    appLogger.info({ event: 'pairing_code_generated', deviceId });
     return code;
   } catch (err) {
-    // Clean up on failure
-    try { sock.end(); } catch (_) {}
-    sockets.delete(k);
-    fs.rmSync(sessionDir, { recursive: true, force: true });
-    await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId]);
-    emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
     appLogger.warn({ event: 'pairing_code_failed', deviceId, err: err.message });
+    await cleanup();
     throw new Error('Não foi possível gerar o código de pareamento. Tente novamente em alguns segundos.');
   }
 }
