@@ -9,7 +9,7 @@ import {
 import {
   Activity, Smartphone, MessageSquare, ArrowDownLeft, ArrowUpRight,
   Wifi, WifiOff, Loader2, RefreshCw, Trash2, Circle, TrendingUp,
-  Filter, Download
+  Filter, Download, Volume2, VolumeX
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -305,6 +305,32 @@ export default function MonitorPage() {
   const [autoScroll, setAutoScroll] = useState(true);
   const [sseConnected, setSseConnected] = useState(false);
   const [filterDeviceId, setFilterDeviceId] = useState<number | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const soundEnabledRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const playBeep = useCallback((direction: 'in' | 'out') => {
+    try {
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AudioContext();
+      }
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      // Incoming: higher pitch; outgoing: lower, softer
+      osc.frequency.value = direction === 'in' ? 880 : 660;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.18);
+    } catch {}
+  }, []);
+
+  // Keep ref in sync so pushMessage always reads the latest value
+  useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
 
   // Rolling timestamp buffer for the chart (last WINDOW_MINUTES + 1 minute for safety)
   const tsBufferRef = useRef<Array<{ ts: Date; direction: 'in' | 'out' }>>([]);
@@ -332,7 +358,9 @@ export default function MonitorPage() {
     // Add to timestamp buffer and immediately refresh chart
     tsBufferRef.current.push({ ts: msg.ts, direction: msg.direction });
     setBuckets(buildBuckets(tsBufferRef.current));
-  }, []);
+    // Sound alert
+    if (soundEnabledRef.current) playBeep(msg.direction);
+  }, [playBeep]);
 
   // SSE handler
   useSSE(true, useCallback((event: string, data: unknown) => {
@@ -510,6 +538,25 @@ export default function MonitorPage() {
                 />
                 Auto-scroll
               </label>
+              <button
+                onClick={() => setSoundEnabled(v => {
+                  const next = !v;
+                  // Resume AudioContext on first user gesture (browser policy)
+                  if (next && audioCtxRef.current?.state === 'suspended') {
+                    audioCtxRef.current.resume().catch(() => {});
+                  }
+                  return next;
+                })}
+                className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors ${
+                  soundEnabled
+                    ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+                title={soundEnabled ? 'Desativar alerta sonoro' : 'Ativar alerta sonoro'}
+              >
+                {soundEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+                Som
+              </button>
               {filteredMessages.length > 0 && (
                 <button
                   onClick={exportCSV}
