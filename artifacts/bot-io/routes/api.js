@@ -6,6 +6,9 @@ const agentsLib = require('../lib/agents');
 const wa = require('../lib/wa-manager');
 const { requireAuth, limiters } = require('../lib/middleware');
 
+// Health check — must be before requireAuth so the deployment probe can reach it
+router.get('/health', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()) }));
+
 router.use(requireAuth);
 router.use(limiters.api);
 

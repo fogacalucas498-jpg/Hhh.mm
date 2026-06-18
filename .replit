@@ -2,7 +2,8 @@ modules = ["nodejs-20", "web", "bash"]
 
 [deployment]
 router = "application"
-deploymentTarget = "autoscale"
+deploymentTarget = "vm"
+run = ["node", "artifacts/bot-io/server.js"]
 
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
