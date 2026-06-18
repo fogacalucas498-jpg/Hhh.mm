@@ -589,65 +589,89 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
   };
 
   // --- Connection lifecycle handler ---
+  // Wrapped in try/catch — an async event handler that throws becomes an
+  // unhandled rejection which crashes the process on Node 15+
   sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
-    if (connection === 'open') {
-      entry.status = 'connected';
-      entry.isPairing = false;
-      const phone = sock.user?.id?.split(':')[0] || null;
-      await db.query(
-        'UPDATE agent_devices SET status=$1, phone=$2, updated_at=NOW() WHERE id=$3',
-        ['connected', phone, deviceId]
-      );
-      appLogger.info({ event: 'device_connected_pairing', deviceId, phone });
-      emitSse(userId, 'device_status', { deviceId, status: 'connected', phone });
-
-      sock.ev.on('messages.upsert', async ({ messages: msgs, type }) => {
-        if (type !== 'notify') return;
-        for (const m of msgs) {
-          if (!m.message) continue;
-          const jid = m.key.remoteJid || '';
-          const deviceRow = await db.query('SELECT agent_id FROM agent_devices WHERE id=$1', [deviceId]);
-          const agentId = deviceRow.rows[0]?.agent_id;
-          if (!agentId) continue;
-          if (jid.endsWith('@g.us')) {
-            handleGroupMessage(userId, deviceId, sock, m).catch(e =>
-              appLogger.error({ event: 'group_msg_error', deviceId, err: e.message })
-            );
-          } else {
-            handleIncoming(userId, deviceId, agentId, sock, m).catch(e =>
-              appLogger.error({ event: 'incoming_error', deviceId, err: e.message })
-            );
-          }
+    try {
+      if (connection === 'open') {
+        entry.status = 'connected';
+        entry.isPairing = false;
+        const phone = sock.user?.id?.split(':')[0] || null;
+        try {
+          await db.query(
+            'UPDATE agent_devices SET status=$1, phone=$2, updated_at=NOW() WHERE id=$3',
+            ['connected', phone, deviceId]
+          );
+        } catch (e) {
+          appLogger.warn({ event: 'pairing_db_update_connected_failed', deviceId, err: e.message });
         }
-      });
-      return;
-    }
+        appLogger.info({ event: 'device_connected_pairing', deviceId, phone });
+        emitSse(userId, 'device_status', { deviceId, status: 'connected', phone });
 
-    if (connection === 'close') {
-      if (isDestroyed) return; // Already handled elsewhere
-      const code = lastDisconnect?.error?.output?.statusCode;
-      const isLoggedOut = code === DisconnectReason.loggedOut;
-      appLogger.info({ event: 'device_disconnected_pairing', deviceId, code });
-
-      if (entry.isPairing) {
-        // If code was already generated, notify frontend to auto-retry; otherwise silent cleanup
-        await cleanup(codeGenerated);
-      } else if (isLoggedOut) {
-        // Explicitly logged out after successful pairing
-        await cleanup();
-      } else {
-        // Lost connection after device was fully paired — reconnect via startDevice
-        entry.status = 'disconnected';
-        await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId])
-          .catch(() => {});
-        emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
-        await new Promise(r => setTimeout(r, 5000));
-        const current = sockets.get(k);
-        if (current && (current.isPairing || current.status === 'connected')) return;
-        startDevice(userId, deviceId).catch(e =>
-          appLogger.error({ event: 'reconnect_failed_pairing', deviceId, err: e.message })
-        );
+        sock.ev.on('messages.upsert', async ({ messages: msgs, type }) => {
+          try {
+            if (type !== 'notify') return;
+            for (const m of msgs) {
+              try {
+                if (!m.message) continue;
+                const jid = m.key.remoteJid || '';
+                let agentId;
+                try {
+                  const deviceRow = await db.query('SELECT agent_id FROM agent_devices WHERE id=$1', [deviceId]);
+                  agentId = deviceRow.rows[0]?.agent_id;
+                } catch (e) {
+                  appLogger.warn({ event: 'pairing_db_fetch_agent_failed', deviceId, err: e.message });
+                  continue;
+                }
+                if (!agentId) continue;
+                if (jid.endsWith('@g.us')) {
+                  handleGroupMessage(userId, deviceId, sock, m).catch(e =>
+                    appLogger.error({ event: 'group_msg_error', deviceId, err: e.message })
+                  );
+                } else {
+                  handleIncoming(userId, deviceId, agentId, sock, m).catch(e =>
+                    appLogger.error({ event: 'incoming_error', deviceId, err: e.message })
+                  );
+                }
+              } catch (e) {
+                appLogger.error({ event: 'pairing_msg_upsert_item_error', deviceId, err: e.message });
+              }
+            }
+          } catch (e) {
+            appLogger.error({ event: 'pairing_messages_upsert_handler_error', deviceId, err: e.message });
+          }
+        });
+        return;
       }
+
+      if (connection === 'close') {
+        if (isDestroyed) return; // Already handled elsewhere
+        const code = lastDisconnect?.error?.output?.statusCode;
+        const isLoggedOut = code === DisconnectReason.loggedOut;
+        appLogger.info({ event: 'device_disconnected_pairing', deviceId, code });
+
+        if (entry.isPairing) {
+          // If code was already generated, notify frontend to auto-retry; otherwise silent cleanup
+          await cleanup(codeGenerated);
+        } else if (isLoggedOut) {
+          // Explicitly logged out after successful pairing
+          await cleanup();
+        } else {
+          // Lost connection after device was fully paired — reconnect via startDevice
+          entry.status = 'disconnected';
+          await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId])
+            .catch(() => {});
+          emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
+          await new Promise(r => setTimeout(r, 5000));
+          const current = sockets.get(k);
+          if (current && (current.isPairing || current.status === 'connected')) return;
+          startDevice(userId, deviceId).catch(e =>
+            appLogger.error({ event: 'reconnect_failed_pairing', deviceId, err: e.message })
+          );
+        }
+      }
+    } catch (e) {
+      appLogger.error({ event: 'pairing_connection_update_handler_error', deviceId, err: e.message });
     }
   });
 

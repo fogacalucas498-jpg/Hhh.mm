@@ -6,7 +6,8 @@ const agentsLib = require('../lib/agents');
 const wa = require('../lib/wa-manager');
 const { requireAuth, limiters } = require('../lib/middleware');
 
-// Health check — must be before requireAuth so the deployment probe can reach it
+// Health checks — must be before requireAuth so the deployment probe can reach them
+router.get('/', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()) }));
 router.get('/health', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()) }));
 
 router.use(requireAuth);
@@ -414,7 +415,7 @@ router.get('/stats', async (req, res) => {
 
     // Count connected devices for this user
     const devicesResult = await db.query(
-      'SELECT id FROM devices WHERE user_id=$1', [req.userId]
+      'SELECT id FROM agent_devices WHERE user_id=$1', [req.userId]
     );
     const deviceIds = devicesResult.rows.map(r => r.id);
     let connectedDevices = 0;
