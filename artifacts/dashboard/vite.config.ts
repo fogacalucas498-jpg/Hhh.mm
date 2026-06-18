@@ -68,7 +68,7 @@ export default defineConfig({
     },
     proxy: {
       "/bot": {
-        target: "http://localhost:5000",
+        target: "http://localhost:8000",
         changeOrigin: true,
         secure: false,
         // SSE precisa de timeout 0 para não cortar a conexão
