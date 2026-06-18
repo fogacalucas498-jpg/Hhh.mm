@@ -9,8 +9,6 @@ const { requireAuth, limiters } = require('../lib/middleware');
 router.use(requireAuth);
 router.use(limiters.api);
 
-// Helper: trata erros de API key e rate-limit de forma padronizada
-// CORRIGIDO: erros de chave ausente/inválida chegam corretamente ao cliente
 function handleApiError(res, e) {
   if (e.code === 'NO_OPENAI_KEY' || e.code === 'NO_ANTHROPIC_KEY') {
     return res.status(402).json({ error: e.message, code: e.code });
@@ -90,6 +88,53 @@ router.delete('/agents/:agentId/training/:trainingId', async (req, res) => {
   } catch (e) { handleApiError(res, e); }
 });
 
+// ── CUSTOM FIELDS (Lead fields) ────────────────────────────────────────────────
+router.get('/agents/:id/custom-fields', async (req, res) => {
+  try {
+    const r = await db.query(
+      'SELECT * FROM agent_custom_fields WHERE agent_id=$1 ORDER BY id',
+      [req.params.id]
+    );
+    res.json({ fields: r.rows });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.post('/agents/:id/custom-fields', async (req, res) => {
+  try {
+    const { field_name, field_value } = req.body;
+    if (!field_name) return res.status(400).json({ error: 'field_name é obrigatório.' });
+    const r = await db.query(
+      'INSERT INTO agent_custom_fields(agent_id, field_name, field_value) VALUES($1,$2,$3) RETURNING *',
+      [req.params.id, field_name.trim(), field_value || '']
+    );
+    res.status(201).json({ field: r.rows[0] });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.patch('/agents/:agentId/custom-fields/:fieldId', async (req, res) => {
+  try {
+    const { field_name, field_value } = req.body;
+    const updates = [];
+    const vals = [];
+    if (field_name !== undefined) { updates.push(`field_name=$${vals.length + 1}`); vals.push(field_name.trim()); }
+    if (field_value !== undefined) { updates.push(`field_value=$${vals.length + 1}`); vals.push(field_value); }
+    if (!updates.length) return res.status(400).json({ error: 'Nada para atualizar.' });
+    vals.push(req.params.fieldId, req.params.agentId);
+    const r = await db.query(
+      `UPDATE agent_custom_fields SET ${updates.join(',')} WHERE id=$${vals.length - 1} AND agent_id=$${vals.length} RETURNING *`,
+      vals
+    );
+    res.json({ field: r.rows[0] });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.delete('/agents/:agentId/custom-fields/:fieldId', async (req, res) => {
+  try {
+    await db.query('DELETE FROM agent_custom_fields WHERE id=$1 AND agent_id=$2', [req.params.fieldId, req.params.agentId]);
+    res.json({ ok: true });
+  } catch (e) { handleApiError(res, e); }
+});
+
 // ── MEDIA ─────────────────────────────────────────────────────────────────────
 router.get('/agents/:id/media', async (req, res) => {
   try {
@@ -134,6 +179,68 @@ router.delete('/agents/:agentId/flows/:flowId', async (req, res) => {
   } catch (e) { handleApiError(res, e); }
 });
 
+// ── USER API KEYS ─────────────────────────────────────────────────────────────
+router.get('/settings/api-keys', async (req, res) => {
+  try {
+    const r = await db.query(
+      'SELECT openai_key, anthropic_key FROM user_api_keys WHERE user_id=$1',
+      [req.userId]
+    );
+    const row = r.rows[0] || {};
+    // Mask keys: show only last 4 chars
+    const mask = (k) => k ? `sk-...${k.slice(-4)}` : '';
+    res.json({
+      openai_key_set: !!row.openai_key,
+      openai_key_hint: mask(row.openai_key),
+      anthropic_key_set: !!row.anthropic_key,
+      anthropic_key_hint: mask(row.anthropic_key),
+    });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.patch('/settings/api-keys', async (req, res) => {
+  try {
+    const { openai_key, anthropic_key } = req.body;
+    // Get existing
+    const existing = await db.query('SELECT id FROM user_api_keys WHERE user_id=$1', [req.userId]);
+    if (existing.rows.length) {
+      const updates = [];
+      const vals = [];
+      if (openai_key !== undefined) {
+        updates.push(`openai_key=$${vals.length + 1}`);
+        vals.push(openai_key || null);
+      }
+      if (anthropic_key !== undefined) {
+        updates.push(`anthropic_key=$${vals.length + 1}`);
+        vals.push(anthropic_key || null);
+      }
+      if (updates.length) {
+        updates.push(`updated_at=NOW()`);
+        vals.push(req.userId);
+        await db.query(`UPDATE user_api_keys SET ${updates.join(',')} WHERE user_id=$${vals.length}`, vals);
+      }
+    } else {
+      await db.query(
+        'INSERT INTO user_api_keys(user_id, openai_key, anthropic_key) VALUES($1,$2,$3)',
+        [req.userId, openai_key || null, anthropic_key || null]
+      );
+    }
+    res.json({ ok: true });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.delete('/settings/api-keys/:provider', async (req, res) => {
+  try {
+    const { provider } = req.params;
+    if (!['openai', 'anthropic'].includes(provider)) {
+      return res.status(400).json({ error: 'Provider inválido.' });
+    }
+    const col = provider === 'openai' ? 'openai_key' : 'anthropic_key';
+    await db.query(`UPDATE user_api_keys SET ${col}=NULL WHERE user_id=$1`, [req.userId]);
+    res.json({ ok: true });
+  } catch (e) { handleApiError(res, e); }
+});
+
 // ── DEVICES ───────────────────────────────────────────────────────────────────
 router.get('/devices', async (req, res) => {
   try {
@@ -157,6 +264,23 @@ router.post('/devices', async (req, res) => {
       [req.userId, agentId || null, name]
     );
     res.status(201).json({ device: r.rows[0] });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.patch('/devices/:id', async (req, res) => {
+  try {
+    const { name, agentId } = req.body;
+    const updates = [];
+    const vals = [];
+    if (name) { updates.push(`name=$${vals.length + 1}`); vals.push(name); }
+    if (agentId !== undefined) { updates.push(`agent_id=$${vals.length + 1}`); vals.push(agentId || null); }
+    if (!updates.length) return res.status(400).json({ error: 'Nada para atualizar.' });
+    vals.push(req.params.id, req.userId);
+    const r = await db.query(
+      `UPDATE agent_devices SET ${updates.join(',')} WHERE id=$${vals.length - 1} AND user_id=$${vals.length} RETURNING *`,
+      vals
+    );
+    res.json({ device: r.rows[0] });
   } catch (e) { handleApiError(res, e); }
 });
 
@@ -279,7 +403,7 @@ router.delete('/group-bots/:id', async (req, res) => {
   } catch (e) { handleApiError(res, e); }
 });
 
-// CORRIGIDO: rota SSE com cleanup correto de conexão (já tratado dentro de addSse)
+// SSE
 router.get('/events', (req, res) => {
   res.set({
     'Content-Type': 'text/event-stream',

@@ -36,6 +36,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ── LIGHT THEME (default) ───────────────────────────────── */
 :root {
   --background: 240 10% 98%;
   --foreground: 240 15% 10%;
@@ -64,6 +65,35 @@
   --sidebar-accent-foreground: 262 15% 90%;
   --app-font-sans: 'Inter', system-ui, sans-serif;
   --radius: 0.5rem;
+}
+
+/* ── DARK THEME ──────────────────────────────────────────── */
+.dark {
+  --background: 240 10% 5%;
+  --foreground: 240 8% 92%;
+  --border: 240 8% 16%;
+  --input: 240 8% 16%;
+  --ring: 262 80% 65%;
+  --card: 240 10% 8%;
+  --card-foreground: 240 8% 92%;
+  --popover: 240 10% 8%;
+  --popover-foreground: 240 8% 92%;
+  --primary: 262 80% 65%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 8% 12%;
+  --secondary-foreground: 240 8% 75%;
+  --muted: 240 8% 12%;
+  --muted-foreground: 240 8% 55%;
+  --accent: 262 60% 18%;
+  --accent-foreground: 262 80% 80%;
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --sidebar: 240 20% 4%;
+  --sidebar-foreground: 262 15% 80%;
+  --sidebar-primary: 262 75% 62%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 18% 9%;
+  --sidebar-accent-foreground: 262 15% 90%;
 }
 
 @layer base {

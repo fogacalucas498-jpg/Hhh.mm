@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { api, ApiError } from '@/lib/api';
 import { User, Lock, CheckCircle2, Loader2, Camera } from 'lucide-react';
@@ -16,7 +16,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all ${props.className ?? ''}`}
+      className={`w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all ${props.className ?? ''}`}
     />
   );
 }
@@ -35,9 +35,16 @@ function Alert({ type, text }: { type: 'ok' | 'err'; text: string }) {
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
 
-  const [profile, setProfile] = useState({ name: user?.name ?? '', email: user?.email ?? '' });
+  const [profile, setProfile] = useState({
+    name: user?.name ?? '',
+    email: user?.email ?? '',
+    avatar_url: user?.avatar_url ?? ''
+  });
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar_url ?? null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
   const [pwLoading, setPwLoading] = useState(false);
@@ -46,6 +53,54 @@ export default function ProfilePage() {
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
     : '?';
+
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setProfileMsg({ type: 'err', text: 'Selecione um arquivo de imagem.' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setProfileMsg({ type: 'err', text: 'Imagem deve ter menos de 2MB.' });
+      return;
+    }
+    setAvatarLoading(true);
+    setProfileMsg(null);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setAvatarPreview(dataUrl);
+      setProfile(p => ({ ...p, avatar_url: dataUrl }));
+      // Auto-save avatar immediately
+      try {
+        await api.patch('/auth/profile', { avatar_url: dataUrl });
+        await refreshUser();
+        setProfileMsg({ type: 'ok', text: 'Foto de perfil atualizada!' });
+      } catch (err) {
+        setProfileMsg({ type: 'err', text: err instanceof ApiError ? err.message : 'Erro ao salvar foto.' });
+      } finally {
+        setAvatarLoading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeAvatar = async () => {
+    setAvatarLoading(true);
+    setProfileMsg(null);
+    try {
+      await api.patch('/auth/profile', { avatar_url: '' });
+      setAvatarPreview(null);
+      setProfile(p => ({ ...p, avatar_url: '' }));
+      await refreshUser();
+      setProfileMsg({ type: 'ok', text: 'Foto removida.' });
+    } catch (err) {
+      setProfileMsg({ type: 'err', text: err instanceof ApiError ? err.message : 'Erro ao remover foto.' });
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,22 +151,57 @@ export default function ProfilePage() {
         <p className="text-sm text-muted-foreground mt-0.5">Gerencie suas informações pessoais e segurança da conta</p>
       </div>
 
-      {/* Avatar + info */}
-      <div className="bg-white rounded-xl border border-border p-5 flex items-center gap-5">
-        <div className="relative shrink-0">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-xl font-bold select-none">
-            {initials}
+      {/* Avatar section */}
+      <div className="bg-card rounded-xl border border-border p-5">
+        <h2 className="font-semibold text-sm mb-4">Foto de perfil</h2>
+        <div className="flex items-center gap-5">
+          <div className="relative shrink-0">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary select-none">
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                initials
+              )}
+            </div>
+            {avatarLoading && (
+              <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center">
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarFile}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+            >
+              <Camera className="w-4 h-4" />
+              {avatarPreview ? 'Trocar foto' : 'Adicionar foto'}
+            </button>
+            {avatarPreview && (
+              <button
+                onClick={removeAvatar}
+                disabled={avatarLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted disabled:opacity-60 transition-colors"
+              >
+                Remover foto
+              </button>
+            )}
+            <p className="text-xs text-muted-foreground">JPG, PNG ou GIF. Máximo 2MB.</p>
           </div>
         </div>
-        <div>
-          <p className="font-semibold text-foreground">{user?.name}</p>
-          <p className="text-sm text-muted-foreground">{user?.email}</p>
-          <p className="text-xs text-muted-foreground/60 mt-0.5 font-mono">ID #{user?.id}</p>
-        </div>
+        {profileMsg && <div className="mt-3"><Alert type={profileMsg.type} text={profileMsg.text} /></div>}
       </div>
 
       {/* Profile form */}
-      <div className="bg-white rounded-xl border border-border shadow-sm">
+      <div className="bg-card rounded-xl border border-border shadow-sm">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
             <User className="w-4 h-4 text-primary" />
@@ -139,7 +229,9 @@ export default function ProfilePage() {
               required
             />
           </Field>
-          {profileMsg && <Alert type={profileMsg.type} text={profileMsg.text} />}
+          <Field label="ID de usuário">
+            <p className="text-sm font-mono text-muted-foreground py-1">#{user?.id}</p>
+          </Field>
           <div className="flex justify-end">
             <button
               type="submit"
@@ -154,7 +246,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Password form */}
-      <div className="bg-white rounded-xl border border-border shadow-sm">
+      <div className="bg-card rounded-xl border border-border shadow-sm">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
             <Lock className="w-4 h-4 text-primary" />

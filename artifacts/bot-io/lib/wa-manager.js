@@ -1,6 +1,5 @@
 'use strict';
 
-// CORRIGIDO: múltiplos bugs corrigidos conforme especificação completa
 const {
   default: makeWASocket,
   useMultiFileAuthState,
@@ -20,11 +19,8 @@ const { getBreaker } = require('./breaker');
 const appLogger = pino({ level: process.env.LOG_LEVEL || 'info' });
 const logger = pino({ level: 'silent' });
 
-// Map: deviceKey -> { sock, store, status, userId, deviceId, qr }
 const sockets = new Map();
-// Map: userId -> Set<res>
 const sseClients = new Map();
-// Debounce timers para mensagens multi-part
 const debounceTimers = new Map();
 const debounceBuffers = new Map();
 
@@ -33,7 +29,6 @@ if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true }
 
 function key(deviceId) { return `dev:${deviceId}`; }
 
-// CORRIGIDO: cache de versão Baileys — evita chamada de rede em cada reconexão
 let _baileysVersion = null;
 let _baileysVersionFetchedAt = 0;
 
@@ -54,7 +49,6 @@ async function getBaileysVersion() {
   }
 }
 
-// CORRIGIDO: cleanup automático de SSE clients desconectados
 function addSse(userId, res) {
   if (!sseClients.has(userId)) sseClients.set(userId, new Set());
   sseClients.get(userId).add(res);
@@ -112,7 +106,6 @@ async function sendMedia(userId, deviceId, jid, opts, { agentId } = {}) {
   const e = sockets.get(key(deviceId));
   if (!e || e.status !== 'connected') throw new Error('Dispositivo não conectado.');
 
-  // CORRIGIDO: circuit breaker para envio de mídia
   const mediaBreaker = getBreaker(`wa_send_${deviceId}`, {
     failureThreshold: 5,
     resetTimeoutMs: 30_000,
@@ -150,7 +143,21 @@ async function handleIncoming(userId, deviceId, agentId, sock, m) {
   const agent = await agentsLib.getAgent(userId, agentId).catch(() => null);
   if (!agent || !agent.enabled) return;
 
-  // CORRIGIDO: análise de imagem usando openai-client centralizado
+  // Check business hours
+  if (!agentsLib.isWithinBusinessHours(agent.business_hours)) {
+    const outMsg = agent.business_hours?.out_of_hours_msg;
+    if (outMsg) {
+      // Only send out-of-hours message once per session (debounce key based approach)
+      const outKey = `ooh:${deviceId}:${jid}`;
+      if (!debounceTimers.has(outKey)) {
+        debounceTimers.set(outKey, setTimeout(() => debounceTimers.delete(outKey), 60 * 60 * 1000));
+        await sendText(userId, deviceId, jid, outMsg, { agentId: agent.id }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  // Image vision processing
   const modelSupportsVision = agent.provider === 'openai' && ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'].includes(agent.model);
   if (M.imageMessage && modelSupportsVision) {
     try {
@@ -159,7 +166,16 @@ async function handleIncoming(userId, deviceId, agentId, sock, m) {
         const b64 = imgBuf.toString('base64');
         const mime = M.imageMessage.mimetype || 'image/jpeg';
         let openaiClient;
-        try { openaiClient = getOpenAI(); } catch (e) {
+        try {
+          // Try user's key first
+          const userKey = await agentsLib.getUserApiKey(userId, 'openai');
+          if (userKey) {
+            const OpenAI = require('openai');
+            openaiClient = new OpenAI({ apiKey: userKey, timeout: 30000, maxRetries: 2 });
+          } else {
+            openaiClient = getOpenAI();
+          }
+        } catch (e) {
           appLogger.warn({ event: 'vision_no_key', deviceId, err: e.message });
           if (!body) body = '[Imagem recebida]';
         }
@@ -184,7 +200,6 @@ async function handleIncoming(userId, deviceId, agentId, sock, m) {
 
   if (!body) return;
 
-  // Debounce — acumula mensagens rápidas
   const debounceKey = `${deviceId}:${jid}`;
   if (debounceTimers.has(debounceKey)) {
     clearTimeout(debounceTimers.get(debounceKey));
@@ -199,7 +214,18 @@ async function handleIncoming(userId, deviceId, agentId, sock, m) {
     debounceBuffers.delete(debounceKey);
     const combined = msgs.join('\n');
 
-    // CORRIGIDO: tryFlow isolado em try/catch — erro não derruba fluxo principal
+    // Check if it's the first contact → send welcome message
+    if (agent.welcome_message) {
+      try {
+        const firstTime = await agentsLib.isFirstContact(userId, deviceId, jid);
+        if (firstTime) {
+          await sendText(userId, deviceId, jid, agent.welcome_message, { agentId: agent.id });
+        }
+      } catch (e) {
+        appLogger.warn({ event: 'welcome_msg_error', deviceId, err: e.message });
+      }
+    }
+
     try {
       const flowReply = await agentsLib.tryFlow(userId, combined);
       if (flowReply) {
@@ -210,7 +236,6 @@ async function handleIncoming(userId, deviceId, agentId, sock, m) {
       appLogger.warn({ event: 'flow_error', deviceId, err: e.message });
     }
 
-    // CORRIGIDO: queries paralelas para histórico + treinamento + campos
     let training = '', customFields = [], history = [];
     try {
       [training, customFields, history] = await Promise.all([
@@ -229,7 +254,10 @@ async function handleIncoming(userId, deviceId, agentId, sock, m) {
     }
 
     try {
-      const reply = await agentsLib.generateReply({ agent, history, userMessage: combined, customFields, training });
+      const reply = await agentsLib.generateReply({
+        agent, history, userMessage: combined, customFields, training,
+        userId, deviceId, contactJid: jid
+      });
       if (reply) await sendText(userId, deviceId, jid, reply, { agentId: agent.id });
     } catch (e) {
       appLogger.warn({ event: 'generate_reply_error', deviceId, jid, err: e.message });
@@ -251,7 +279,6 @@ async function handleGroupMessage(userId, deviceId, sock, m) {
   const groupBot = r.rows[0];
   if (!groupBot) return;
 
-  // CORRIGIDO: verifica agent.enabled no handleGroupMessage
   const agent = await agentsLib.getAgent(userId, groupBot.agent_id);
   if (!agent || !agent.enabled) return;
 
@@ -266,7 +293,6 @@ async function startDevice(userId, deviceId) {
   fs.mkdirSync(sessionDir, { recursive: true });
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-  // CORRIGIDO: usa versão cacheada do Baileys
   const version = await getBaileysVersion();
 
   const sock = makeWASocket({
@@ -377,7 +403,6 @@ async function logoutDevice(userId, deviceId) {
   emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
 }
 
-// CORRIGIDO: restoreAll reseta 'connecting'/'qr' para 'disconnected'; só restaura 'connected'
 async function restoreAll() {
   const r = await db.query(
     `SELECT d.id, d.user_id FROM agent_devices d WHERE d.status = 'connected'`
@@ -401,7 +426,6 @@ function getDeviceStatus(deviceId) {
   return e ? { status: e.status, qr: e.qr } : { status: 'disconnected', qr: null };
 }
 
-// CORRIGIDO: limpeza de debounce timers órfãos — prevenção de memory leak
 function cleanDebounceOrphans() {
   const MAX_TIMERS = 5000;
   if (debounceTimers.size > MAX_TIMERS) {
@@ -428,7 +452,6 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
     sockets.delete(k);
   }
 
-  // Clear session — pairing code requires fresh (unregistered) auth state
   const sessionDir = path.join(SESSIONS_DIR, `device_${deviceId}`);
   fs.rmSync(sessionDir, { recursive: true, force: true });
   fs.mkdirSync(sessionDir, { recursive: true });
@@ -503,17 +526,16 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
     }
   });
 
-  // Validate phone
   const clean = phoneNumber.replace(/[^0-9]/g, '');
   if (clean.length < 10) {
     throw new Error('Número inválido. Use o formato internacional sem + (ex: 5511999999999).');
   }
 
-  // Give socket time to initialize before requesting pairing code
-  await new Promise(r => setTimeout(r, 2000));
+  // Wait for socket to be in the right state for pairing
+  await new Promise(r => setTimeout(r, 3000));
 
   const code = await sock.requestPairingCode(clean);
-  return code; // e.g. "ABCD-1234"
+  return code;
 }
 
 module.exports = {

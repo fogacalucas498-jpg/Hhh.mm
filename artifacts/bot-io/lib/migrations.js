@@ -131,11 +131,37 @@ const MIGRATIONS = [
         applied_at TIMESTAMPTZ DEFAULT NOW()
       );
     `
+  },
+  {
+    id: 2,
+    name: 'profile_and_agent_features',
+    sql: `
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+      ALTER TABLE agents ADD COLUMN IF NOT EXISTS business_hours JSONB DEFAULT NULL;
+      ALTER TABLE agents ADD COLUMN IF NOT EXISTS welcome_message TEXT NOT NULL DEFAULT '';
+
+      CREATE TABLE IF NOT EXISTS user_api_keys (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+        openai_key TEXT,
+        anthropic_key TEXT,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS first_contacts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        device_id INTEGER NOT NULL REFERENCES agent_devices(id) ON DELETE CASCADE,
+        contact_jid TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(device_id, contact_jid)
+      );
+    `
   }
 ];
 
 async function runMigrations() {
-  // CORRIGIDO: client dedicado sem statement_timeout para migrations (evita timeout em índices grandes)
   const client = await db.pool.connect();
   try {
     await client.query('SET statement_timeout = 0');

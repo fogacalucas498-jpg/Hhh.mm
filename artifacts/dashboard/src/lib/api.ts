@@ -6,7 +6,6 @@ export class ApiError extends Error {
   }
 }
 
-// Evento disparado quando a sessão expira, para o AuthProvider reagir sem reload
 const SESSION_EXPIRED_EVENT = 'auth:session-expired';
 export function onSessionExpired(cb: () => void) {
   window.addEventListener(SESSION_EXPIRED_EVENT, cb);
@@ -53,32 +52,65 @@ export const api = {
 };
 
 // Types
-export interface User { id: number; email: string; name: string }
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  avatar_url?: string | null;
+}
+
 export interface Agent {
   id: number; user_id: number; name: string; system_prompt: string;
   model: string; provider: string; enabled: boolean;
   debounce_ms: number; max_tokens: number; temperature: number;
+  welcome_message: string;
+  business_hours: BusinessHours | null;
   created_at: string; updated_at: string;
 }
+
+export interface BusinessHours {
+  enabled: boolean;
+  timezone: string;
+  out_of_hours_msg: string;
+  schedule: Record<string, { active: boolean; start: string; end: string }>;
+}
+
 export interface Device {
   id: number; user_id: number; agent_id: number | null;
   name: string; phone: string | null; status: string;
   qr?: string | null; created_at: string; updated_at: string;
 }
+
 export interface Message {
   id: number; user_id: number; device_id: number | null;
   agent_id: number | null; contact_jid: string;
   direction: 'in' | 'out'; body: string | null;
   msg_type: string; created_at: string;
 }
+
 export interface Contact {
   id: number; user_id: number; jid: string;
   name: string | null; phone: string | null;
   tags: string[]; created_at: string;
 }
+
 export interface Flow {
   id: number; user_id: number; agent_id: number; name: string;
   trigger_keyword: string; trigger_mode: string; enabled: boolean;
   created_at: string;
 }
-export interface TrainingItem { id: number; agent_id: number; content: string; created_at: string }
+
+export interface TrainingItem {
+  id: number; agent_id: number; content: string; created_at: string;
+}
+
+export interface CustomField {
+  id: number; agent_id: number; field_name: string; field_value: string;
+}
+
+export interface ApiKeyStatus {
+  openai_key_set: boolean;
+  openai_key_hint: string;
+  anthropic_key_set: boolean;
+  anthropic_key_hint: string;
+}

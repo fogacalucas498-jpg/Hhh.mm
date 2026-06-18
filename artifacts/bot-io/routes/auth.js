@@ -20,7 +20,7 @@ router.post('/register', limiters.auth, async (req, res) => {
     }
     const hash = await bcrypt.hash(password, 12);
     const r = await db.query(
-      'INSERT INTO users(email, password_hash, name) VALUES($1,$2,$3) RETURNING id, email, name',
+      'INSERT INTO users(email, password_hash, name) VALUES($1,$2,$3) RETURNING id, email, name, avatar_url',
       [email.toLowerCase(), hash, name]
     );
     const user = r.rows[0];
@@ -30,7 +30,7 @@ router.post('/register', limiters.auth, async (req, res) => {
         console.error('[auth] session save error:', err.message);
         return res.status(500).json({ error: 'Erro ao salvar sessão.' });
       }
-      res.status(201).json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
+      res.status(201).json({ ok: true, user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url } });
     });
   } catch (e) {
     console.error('[auth] register error:', e.message);
@@ -45,7 +45,7 @@ router.post('/login', limiters.auth, async (req, res) => {
       return res.status(400).json({ error: 'email e password são obrigatórios.' });
     }
     const r = await db.query(
-      'SELECT id, email, name, password_hash FROM users WHERE email=$1',
+      'SELECT id, email, name, password_hash, avatar_url FROM users WHERE email=$1',
       [email.toLowerCase()]
     );
     const user = r.rows[0];
@@ -62,7 +62,7 @@ router.post('/login', limiters.auth, async (req, res) => {
         console.error('[auth] session save error:', err.message);
         return res.status(500).json({ error: 'Erro ao salvar sessão.' });
       }
-      res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
+      res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url } });
     });
   } catch (e) {
     console.error('[auth] login error:', e.message);
@@ -76,7 +76,7 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Não autenticado.' });
-  db.query('SELECT id, email, name FROM users WHERE id=$1', [req.session.userId])
+  db.query('SELECT id, email, name, avatar_url FROM users WHERE id=$1', [req.session.userId])
     .then(r => {
       const user = r.rows[0];
       if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
@@ -88,8 +88,8 @@ router.get('/me', (req, res) => {
 router.patch('/profile', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Não autenticado.' });
   try {
-    const { name, email } = req.body;
-    if (!name && !email) return res.status(400).json({ error: 'Forneça name ou email.' });
+    const { name, email, avatar_url } = req.body;
+    if (!name && !email && avatar_url === undefined) return res.status(400).json({ error: 'Forneça pelo menos um campo.' });
     const updates = [];
     const vals = [];
     if (name) { updates.push(`name=$${vals.length + 1}`); vals.push(name.trim()); }
@@ -99,9 +99,13 @@ router.patch('/profile', async (req, res) => {
       if (exists.rows.length) return res.status(409).json({ error: 'E-mail já está em uso.' });
       updates.push(`email=$${vals.length + 1}`); vals.push(lc);
     }
+    if (avatar_url !== undefined) {
+      updates.push(`avatar_url=$${vals.length + 1}`);
+      vals.push(avatar_url || null);
+    }
     vals.push(req.session.userId);
     const r = await db.query(
-      `UPDATE users SET ${updates.join(', ')} WHERE id=$${vals.length} RETURNING id, email, name`,
+      `UPDATE users SET ${updates.join(', ')} WHERE id=$${vals.length} RETURNING id, email, name, avatar_url`,
       vals
     );
     res.json({ user: r.rows[0] });

@@ -3,7 +3,6 @@
 const db = require('./db');
 const llm = require('./llm');
 
-// CORRIGIDO: janela deslizante de histórico — limita tokens e custo
 function trimHistory(history, maxMsgs = 30, maxChars = 8000) {
   let trimmed = history.slice(-maxMsgs);
   let totalChars = trimmed.reduce((s, m) => s + (m.content || '').length, 0);
@@ -31,7 +30,6 @@ async function listAgents(userId) {
 }
 
 async function createAgent(userId, data) {
-  // aceita tanto snake_case (frontend) quanto camelCase
   const name = data.name;
   const systemPrompt = data.system_prompt ?? data.systemPrompt ?? '';
   const model = data.model ?? 'gpt-4o-mini';
@@ -39,10 +37,13 @@ async function createAgent(userId, data) {
   const debounceMs = data.debounce_ms ?? data.debounceMs ?? 1500;
   const maxTokens = data.max_tokens ?? data.maxTokens ?? 500;
   const temperature = data.temperature ?? 0.7;
+  const businessHours = data.business_hours ?? null;
+  const welcomeMessage = data.welcome_message ?? '';
   const r = await db.query(
-    `INSERT INTO agents(user_id, name, system_prompt, model, provider, debounce_ms, max_tokens, temperature)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-    [userId, name, systemPrompt, model, provider, debounceMs, maxTokens, temperature]
+    `INSERT INTO agents(user_id, name, system_prompt, model, provider, debounce_ms, max_tokens, temperature, business_hours, welcome_message)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+    [userId, name, systemPrompt, model, provider, debounceMs, maxTokens, temperature,
+     businessHours ? JSON.stringify(businessHours) : null, welcomeMessage]
   );
   return r.rows[0];
 }
@@ -51,13 +52,18 @@ async function updateAgent(userId, agentId, data) {
   const fields = [];
   const vals = [];
   let i = 1;
-  const allowed = ['name','system_prompt','model','provider','enabled','debounce_ms','max_tokens','temperature'];
+  const allowed = ['name','system_prompt','model','provider','enabled','debounce_ms','max_tokens','temperature','welcome_message'];
   for (const [k, v] of Object.entries(data)) {
     const col = k.replace(/([A-Z])/g, '_$1').toLowerCase();
     if (allowed.includes(col)) {
       fields.push(`${col}=$${i++}`);
       vals.push(v);
     }
+  }
+  // Handle business_hours separately (JSONB)
+  if (data.business_hours !== undefined) {
+    fields.push(`business_hours=$${i++}`);
+    vals.push(data.business_hours ? JSON.stringify(data.business_hours) : null);
   }
   if (!fields.length) return null;
   fields.push(`updated_at=NOW()`);
@@ -122,7 +128,61 @@ async function getCustomFields(agentId) {
   return r.rows;
 }
 
-async function generateReply({ agent, history, userMessage, customFields = [], training = '' }) {
+// Get per-user API key for a given provider
+async function getUserApiKey(userId, provider) {
+  try {
+    const r = await db.query('SELECT openai_key, anthropic_key FROM user_api_keys WHERE user_id=$1', [userId]);
+    if (!r.rows[0]) return null;
+    return provider === 'anthropic' ? r.rows[0].anthropic_key : r.rows[0].openai_key;
+  } catch (_) { return null; }
+}
+
+// Check if current time is within business hours
+function isWithinBusinessHours(businessHours) {
+  if (!businessHours || !businessHours.enabled) return true;
+
+  const tz = businessHours.timezone || 'America/Sao_Paulo';
+  const now = new Date();
+  // Get local time in the configured timezone
+  const localStr = now.toLocaleString('en-US', { timeZone: tz, hour12: false });
+  const local = new Date(localStr);
+
+  const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const dayKey = dayNames[local.getDay()];
+  const schedule = businessHours.schedule || {};
+  const dayConfig = schedule[dayKey];
+
+  if (!dayConfig || !dayConfig.active) return false;
+
+  const hhmm = (h, m) => h * 60 + m;
+  const hours = local.getHours();
+  const minutes = local.getMinutes();
+  const current = hhmm(hours, minutes);
+
+  const [startH, startM] = (dayConfig.start || '09:00').split(':').map(Number);
+  const [endH, endM] = (dayConfig.end || '18:00').split(':').map(Number);
+
+  return current >= hhmm(startH, startM) && current < hhmm(endH, endM);
+}
+
+async function isFirstContact(userId, deviceId, contactJid) {
+  try {
+    const r = await db.query(
+      'SELECT id FROM first_contacts WHERE device_id=$1 AND contact_jid=$2',
+      [deviceId, contactJid]
+    );
+    if (r.rows.length === 0) {
+      await db.query(
+        'INSERT INTO first_contacts(user_id, device_id, contact_jid) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',
+        [userId, deviceId, contactJid]
+      );
+      return true;
+    }
+    return false;
+  } catch (_) { return false; }
+}
+
+async function generateReply({ agent, history, userMessage, customFields = [], training = '', userId, deviceId, contactJid }) {
   let systemParts = [];
   if (agent.system_prompt) systemParts.push(agent.system_prompt);
   if (training) systemParts.push(`\n## Base de Conhecimento\n${training}`);
@@ -132,13 +192,19 @@ async function generateReply({ agent, history, userMessage, customFields = [], t
   }
   const system = systemParts.join('\n') || 'Você é um assistente útil.';
 
-  // CORRIGIDO: aplica janela deslizante antes de enviar para a API
   const trimmedHistory = trimHistory(history);
   const messages = [...trimmedHistory, { role: 'user', content: userMessage }];
 
-  const apiKey = agent.provider === 'anthropic'
-    ? process.env.ANTHROPIC_API_KEY
-    : undefined;
+  // Use per-user API key first, then fall back to env var
+  let apiKey;
+  if (userId) {
+    apiKey = await getUserApiKey(userId, agent.provider);
+  }
+  if (!apiKey) {
+    apiKey = agent.provider === 'anthropic'
+      ? process.env.ANTHROPIC_API_KEY
+      : undefined; // openai-client handles env var internally
+  }
 
   return llm.chatComplete({
     provider: agent.provider,
@@ -213,6 +279,9 @@ module.exports = {
   getTraining, addTraining, deleteTraining,
   getMedia, addMedia, deleteMedia,
   getCustomFields,
+  getUserApiKey,
+  isWithinBusinessHours,
+  isFirstContact,
   generateReply, trimHistory,
   getFlows, createFlow, deleteFlow, tryFlow,
 };

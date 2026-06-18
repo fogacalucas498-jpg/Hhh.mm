@@ -1,14 +1,15 @@
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { useNotifications } from '@/hooks/useNotifications';
 import {
   LayoutDashboard, Bot, Smartphone, MessageSquare,
   Users, Zap, Settings, LogOut, Menu, Bell, X,
-  MessageCircle, Wifi, WifiOff, Info
+  MessageCircle, Wifi, WifiOff, Info, Sun, Moon
 } from 'lucide-react';
 import { useState } from 'react';
 
-const nav = [
+const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/agents', icon: Bot, label: 'Agentes' },
   { to: '/devices', icon: Smartphone, label: 'Dispositivos' },
@@ -34,6 +35,7 @@ function timeAgo(date: Date) {
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [loc] = useLocation();
   const { user, logout } = useAuth();
+  const { theme, toggle: toggleTheme } = useTheme();
   const { notifications, toasts, unreadCount, markAllRead, dismissToast } = useNotifications();
   const [open, setOpen] = useState(false);
   const [notifPanel, setNotifPanel] = useState(false);
@@ -44,7 +46,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Mobile overlay */}
       {open && (
         <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setOpen(false)} />
       )}
@@ -62,15 +63,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             alt="Bot.io"
             className="w-9 h-9 rounded-xl object-cover ring-1 ring-white/10"
           />
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="font-bold text-white text-sm tracking-tight">Bot.io</p>
             <p className="text-xs text-sidebar-foreground/50 truncate max-w-[120px]">{user?.name}</p>
           </div>
+          {/* Theme toggle in sidebar */}
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors shrink-0"
+            title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-thin">
-          {nav.map(({ to, icon: Icon, label }) => {
+          {navItems.map(({ to, icon: Icon, label }) => {
             const active = to === '/' ? loc === '/' : loc.startsWith(to);
             return (
               <Link key={to} href={to}
@@ -91,7 +100,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Bottom */}
         <div className="px-3 pb-4 border-t border-white/5 pt-4 space-y-0.5">
-          {/* Notifications bell */}
           <button
             onClick={() => { setNotifPanel(v => !v); if (unreadCount > 0) markAllRead(); }}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent transition-colors relative"
@@ -111,9 +119,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 ? 'bg-sidebar-primary text-white'
                 : 'text-sidebar-foreground/70 hover:bg-sidebar-accent'
               }`}>
-            <div className="w-5 h-5 rounded-full bg-sidebar-primary/40 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-              {initials}
-            </div>
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt={user.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-sidebar-primary/40 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                {initials}
+              </div>
+            )}
             Meu Perfil
           </Link>
           <Link href="/settings" onClick={() => setOpen(false)}
@@ -133,9 +145,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Notifications panel (floating, beside sidebar) */}
+      {/* Notifications panel */}
       {notifPanel && (
-        <div className="fixed z-40 left-64 bottom-16 w-80 bg-white rounded-2xl shadow-2xl border border-border overflow-hidden"
+        <div className="fixed z-40 left-64 bottom-16 w-80 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden"
           style={{ maxHeight: '400px' }}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <span className="font-semibold text-sm">Notificações</span>
@@ -151,7 +163,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
             ) : (
               notifications.map(n => (
-                <div key={n.id} className={`flex gap-3 px-4 py-3 border-b border-border/50 last:border-0 ${n.read ? '' : 'bg-primary/3'}`}>
+                <div key={n.id} className={`flex gap-3 px-4 py-3 border-b border-border/50 last:border-0 ${n.read ? '' : 'bg-primary/5'}`}>
                   <NotifIcon type={n.type} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{n.title}</p>
@@ -168,12 +180,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar (mobile) */}
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b">
+        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-card border-b border-border">
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-muted">
             <Menu className="w-5 h-5" />
           </button>
           <img src="/logo.jpg" alt="Bot.io" className="w-7 h-7 rounded-lg object-cover" />
           <span className="font-bold text-sm flex-1">Bot.io</span>
+          <button onClick={toggleTheme} className="p-1.5 rounded-lg hover:bg-muted" title="Alternar tema">
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
           <button
             onClick={() => { setNotifPanel(v => !v); if (unreadCount > 0) markAllRead(); }}
             className="relative p-1.5 rounded-lg hover:bg-muted"
@@ -191,11 +206,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Toast notifications — fixed bottom-right */}
+      {/* Toast notifications */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none" style={{ maxWidth: 340 }}>
         {toasts.map(t => (
           <div key={t.id}
-            className="pointer-events-auto flex items-start gap-3 bg-white border border-border rounded-xl shadow-lg px-4 py-3 animate-in slide-in-from-right-4 fade-in duration-300"
+            className="pointer-events-auto flex items-start gap-3 bg-card border border-border rounded-xl shadow-lg px-4 py-3 animate-in slide-in-from-right-4 fade-in duration-300"
           >
             <NotifIcon type={t.type} />
             <div className="flex-1 min-w-0">
