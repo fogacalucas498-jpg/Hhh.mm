@@ -6,6 +6,16 @@ export class ApiError extends Error {
   }
 }
 
+// Evento disparado quando a sessão expira, para o AuthProvider reagir sem reload
+const SESSION_EXPIRED_EVENT = 'auth:session-expired';
+export function onSessionExpired(cb: () => void) {
+  window.addEventListener(SESSION_EXPIRED_EVENT, cb);
+  return () => window.removeEventListener(SESSION_EXPIRED_EVENT, cb);
+}
+function dispatchSessionExpired() {
+  window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -20,8 +30,8 @@ async function request<T>(
   });
 
   if (res.status === 401 && !path.startsWith('/auth')) {
-    window.location.href = '/login';
-    throw new ApiError(401, 'Não autenticado');
+    dispatchSessionExpired();
+    throw new ApiError(401, 'Sessão expirada. Faça login novamente.');
   }
 
   const data = await res.json().catch(() => ({}));

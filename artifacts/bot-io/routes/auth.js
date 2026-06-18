@@ -25,7 +25,13 @@ router.post('/register', limiters.auth, async (req, res) => {
     );
     const user = r.rows[0];
     req.session.userId = user.id;
-    res.status(201).json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
+    req.session.save((err) => {
+      if (err) {
+        console.error('[auth] session save error:', err.message);
+        return res.status(500).json({ error: 'Erro ao salvar sessão.' });
+      }
+      res.status(201).json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
+    });
   } catch (e) {
     console.error('[auth] register error:', e.message);
     res.status(500).json({ error: 'Erro ao criar conta.' });
@@ -51,7 +57,13 @@ router.post('/login', limiters.auth, async (req, res) => {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
     req.session.userId = user.id;
-    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
+    req.session.save((err) => {
+      if (err) {
+        console.error('[auth] session save error:', err.message);
+        return res.status(500).json({ error: 'Erro ao salvar sessão.' });
+      }
+      res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
+    });
   } catch (e) {
     console.error('[auth] login error:', e.message);
     res.status(500).json({ error: 'Erro ao fazer login.' });

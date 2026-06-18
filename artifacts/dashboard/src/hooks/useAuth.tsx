@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api, User } from '@/lib/api';
+import { api, User, onSessionExpired } from '@/lib/api';
 
 interface AuthCtx {
   user: User | null;
@@ -20,6 +20,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(d => setUser(d.user))
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Quando qualquer requisição autenticada retorna 401 (sessão expirada),
+  // limpa o usuário sem fazer reload de página (evita loop de redirect)
+  useEffect(() => {
+    return onSessionExpired(() => setUser(null));
   }, []);
 
   const login = async (email: string, password: string) => {

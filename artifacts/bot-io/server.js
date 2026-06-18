@@ -49,14 +49,19 @@ app.use(cors({
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// No Replit, as requisições chegam via proxy HTTPS, então precisamos
+// de sameSite:'none' + secure:true para os cookies funcionarem corretamente
+const isReplit = !!process.env.REPL_ID;
+const isProd = process.env.NODE_ENV === 'production';
+
 app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: isReplit || isProd,
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: isReplit ? 'none' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000
   }
 }));
