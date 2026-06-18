@@ -85,4 +85,54 @@ router.get('/me', (req, res) => {
     .catch(() => res.status(500).json({ error: 'Erro interno.' }));
 });
 
+router.patch('/profile', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Não autenticado.' });
+  try {
+    const { name, email } = req.body;
+    if (!name && !email) return res.status(400).json({ error: 'Forneça name ou email.' });
+    const updates = [];
+    const vals = [];
+    if (name) { updates.push(`name=$${vals.length + 1}`); vals.push(name.trim()); }
+    if (email) {
+      const lc = email.toLowerCase().trim();
+      const exists = await db.query('SELECT id FROM users WHERE email=$1 AND id!=$2', [lc, req.session.userId]);
+      if (exists.rows.length) return res.status(409).json({ error: 'E-mail já está em uso.' });
+      updates.push(`email=$${vals.length + 1}`); vals.push(lc);
+    }
+    vals.push(req.session.userId);
+    const r = await db.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE id=$${vals.length} RETURNING id, email, name`,
+      vals
+    );
+    res.json({ user: r.rows[0] });
+  } catch (e) {
+    console.error('[auth] profile error:', e.message);
+    res.status(500).json({ error: 'Erro ao atualizar perfil.' });
+  }
+});
+
+router.patch('/password', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Não autenticado.' });
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'currentPassword e newPassword são obrigatórios.' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Nova senha deve ter pelo menos 8 caracteres.' });
+    }
+    const r = await db.query('SELECT password_hash FROM users WHERE id=$1', [req.session.userId]);
+    const user = r.rows[0];
+    if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
+    const ok = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Senha atual incorreta.' });
+    const hash = await bcrypt.hash(newPassword, 12);
+    await db.query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, req.session.userId]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[auth] password error:', e.message);
+    res.status(500).json({ error: 'Erro ao alterar senha.' });
+  }
+});
+
 module.exports = router;

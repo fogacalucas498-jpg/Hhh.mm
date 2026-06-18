@@ -3,29 +3,16 @@ import { useLocation } from "wouter";
 import "./landing.css";
 
 const Logo = () => (
-  <svg viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ height: 32, display: "block" }}>
-    <rect width="36" height="36" x="2" y="2" rx="10" fill="url(#llg)" />
-    <circle cx="14" cy="15" r="2.5" fill="white" />
-    <circle cx="26" cy="15" r="2.5" fill="white" />
-    <rect x="11" y="22" width="18" height="3" rx="1.5" fill="white" />
-    <rect x="8" y="10" width="24" height="18" rx="5" stroke="white" strokeWidth="2" fill="none" />
-    <rect x="17" y="6" width="6" height="4" rx="1" fill="white" />
-    <rect x="4" y="18" width="3" height="6" rx="1.5" fill="white" />
-    <rect x="33" y="18" width="3" height="6" rx="1.5" fill="white" />
-    <text x="46" y="26" fontFamily="Inter,-apple-system,sans-serif" fontSize="20" fontWeight="800" fill="white" letterSpacing="-0.5">Bot</text>
-    <text x="80" y="26" fontFamily="Inter,-apple-system,sans-serif" fontSize="20" fontWeight="800" fill="#25d366" letterSpacing="-0.5">.io</text>
-    <defs>
-      <linearGradient id="llg" x1="2" y1="2" x2="38" y2="38" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#25d366" /><stop offset="1" stopColor="#1da851" />
-      </linearGradient>
-    </defs>
-  </svg>
+  <div className="nav-logo">
+    <img src="/logo.jpg" alt="Bot.io" />
+    <span className="nav-logo-text">Bot.io</span>
+  </div>
 );
 
 const MARQUEE_ITEMS = [
-  "🤖 Múltiplos Agentes","⚡ IA Powered","☁️ 100% Cloud","📊 Relatórios Precisos",
+  "🤖 Múltiplos Agentes","⚡ IA Powered","☁️ 100% Cloud","📊 Relatórios em Tempo Real",
   "🔒 Segurança LGPD","📁 Base de Conhecimento","🎙️ Transcreve Áudios","📱 Múltiplos Números",
-  "⏰ Economize Tempo","👥 Controle os Leads","🔧 Fácil Configuração","💳 Sem Fidelidade",
+  "⏰ Economize Tempo","👥 Controle seus Leads","🔧 Fácil Configuração","💜 100% Gratuito",
 ];
 
 export default function LandingPage() {
@@ -33,7 +20,6 @@ export default function LandingPage() {
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeTab, setActiveTab] = useState("construa");
-  const [quarterly, setQuarterly] = useState(false);
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -93,7 +79,7 @@ export default function LandingPage() {
       id: "otimize", label: "⚡ Otimize",
       title: "Métricas que Geram Resultado",
       text: "Acompanhe em tempo real o desempenho dos seus agentes, volume de atendimentos e leads capturados — tudo em dashboards claros e acionáveis.",
-      items: ["Dashboard em tempo real","Taxa de resolução automática","Leads capturados por agente","Relatórios exportáveis em CSV"],
+      items: ["Dashboard em tempo real","Taxa de resolução automática","Leads capturados por agente","Relatórios exportáveis"],
       visual: (
         <div className="visual-card">
           {[["Mensagens Hoje","1.247","↑ 23%"],["Taxa de Resolução","98.2%","↑ 4%"],["Leads Capturados","89","↑ 12%"]].map(([label, val, delta]) => (
@@ -101,7 +87,7 @@ export default function LandingPage() {
               <span>{label}</span>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <strong style={{ color: "#fff", fontWeight: 700 }}>{val}</strong>
-                <span style={{ fontSize: "0.75rem", color: "#25d366" }}>{delta}</span>
+                <span style={{ fontSize: "0.75rem", color: "#a78bfa" }}>{delta}</span>
               </span>
             </div>
           ))}
@@ -118,7 +104,7 @@ export default function LandingPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div className="chat-msg in" style={{ maxWidth: "100%" }}>Preciso falar com um atendente</div>
             <div className="chat-msg out" style={{ maxWidth: "100%" }}>Claro! Transferindo você agora... 🤝</div>
-            <div style={{ background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.25)", borderRadius: 8, padding: "10px 14px", fontSize: "0.82rem", color: "#25d366" }}>
+            <div style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 8, padding: "10px 14px", fontSize: "0.82rem", color: "#a78bfa" }}>
               ✓ Atendente Ana conectada — contexto enviado automaticamente
             </div>
           </div>
@@ -127,16 +113,16 @@ export default function LandingPage() {
     },
   ];
 
-  const PRICES = { Start: { m: 97, q: 77 }, Pro: { m: 267, q: 213 }, Ultra: { m: 697, q: 557 } };
-
   return (
     <div className="lp">
       {/* NAVBAR */}
       <nav className={`navbar${scrolled ? " scrolled" : ""}`} ref={navRef} style={{ position: "relative" }}>
         <div className="nav-container">
-          <a href="#home" className="nav-logo" onClick={e => { e.preventDefault(); goTo("#home"); }}><Logo /></a>
+          <a href="#home" onClick={e => { e.preventDefault(); goTo("#home"); }}>
+            <Logo />
+          </a>
           <ul className={`nav-links${navOpen ? " open" : ""}`}>
-            {[["#features","Funcionalidades"],["#como-funciona","Como Funciona"],["#pricing","Preços"]].map(([h,l]) => (
+            {[["#features","Funcionalidades"],["#como-funciona","Como Funciona"],["#faq","FAQ"]].map(([h,l]) => (
               <li key={h}><a href={h} onClick={e => { e.preventDefault(); goTo(h); }}>{l}</a></li>
             ))}
           </ul>
@@ -154,7 +140,7 @@ export default function LandingPage() {
         <div className="hero-container">
           <div className="hero-badge">
             <span className="badge-dot" />
-            Plataforma de Atendimento com I.A
+            Plataforma de Atendimento com I.A — 100% Gratuita
           </div>
           <h1 className="hero-title">
             Transforme seu WhatsApp<br />
@@ -162,14 +148,14 @@ export default function LandingPage() {
           </h1>
           <p className="hero-subtitle">
             Com o <strong>Bot.io</strong>, crie agentes de I.A treinados com o conhecimento do seu negócio
-            e atenda clientes no WhatsApp de forma automática, natural e eficiente. Sem código, sem complicação.
+            e atenda clientes no WhatsApp de forma automática, natural e eficiente. Sem código, sem complicação. <strong style={{ color: "#a78bfa" }}>100% grátis.</strong>
           </p>
           <div className="hero-actions">
             <button className="btn-primary btn-large" onClick={() => navigate("/login")}>
               Cadastre-se Grátis
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </button>
-            <span className="hero-note">Sem cartão de crédito · Comece em 2 minutos</span>
+            <span className="free-badge">💜 Sem cartão de crédito · Acesso imediato</span>
           </div>
 
           {/* Mockup */}
@@ -187,7 +173,7 @@ export default function LandingPage() {
               <div className="mockup-content">
                 <div className="mockup-card">
                   <div className="mockup-card-header">
-                    <div className="mockup-avatar green" />
+                    <div className="mockup-avatar purple" />
                     <div><div className="mockup-name">Agente Vendas</div><div className="mockup-status">● Online</div></div>
                   </div>
                   <div className="mockup-stat"><span>Mensagens hoje</span><strong>1.247</strong></div>
@@ -292,7 +278,7 @@ export default function LandingPage() {
                     <h3>{t.title}</h3>
                     <p>{t.text}</p>
                     <ul className="benefit-list">
-                      {t.items.map(item => <li key={item}>✓ {item}</li>)}
+                      {t.items.map(item => <li key={item}>{item}</li>)}
                     </ul>
                   </div>
                   <div className="benefit-visual">{t.visual}</div>
@@ -303,63 +289,36 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* PRICING */}
-      <section className="pricing" id="pricing">
+      {/* FREE — no lugar do pricing */}
+      <section className="free-section" id="planos">
         <div className="container">
-          <div className="section-tag">Planos simples, sem surpresas</div>
-          <h2>Comece Pequeno, Escale Muito</h2>
-          <p className="section-subtitle">Com o Bot.io, você já pode começar a vender de forma automatizada com I.A no seu WhatsApp, e se precisar, escale a qualquer momento.</p>
-          <div className="pricing-toggle">
-            <span>Mensal</span>
-            <label className="toggle-switch">
-              <input type="checkbox" checked={quarterly} onChange={e => setQuarterly(e.target.checked)} />
-              <span className="toggle-slider" />
-            </label>
-            <span>Trimestral <span className="badge-discount">20% OFF</span></span>
+          <div className="section-tag" style={{ textAlign: "center", display: "block", margin: "0 auto 16px" }}>
+            Sem mensalidade, sem surpresas
           </div>
-          <div className="pricing-grid">
-            {/* Start */}
-            <div className="pricing-card">
-              <div className="plan-name">Start</div>
-              <div className="plan-tagline">Ideal para demandas menores</div>
-              <div className="plan-price">
-                <span className="price-currency">R$</span>
-                <span className="price-amount">{quarterly ? PRICES.Start.q : PRICES.Start.m}</span>
-                <span className="price-period">/mês</span>
+          <h2 style={{ textAlign: "center" }}>Tudo Grátis, Para Sempre</h2>
+          <p className="section-subtitle" style={{ textAlign: "center", margin: "12px auto 0" }}>
+            O Bot.io é 100% gratuito. Sem planos, sem cartão de crédito, sem pegadinhas. Crie sua conta e comece agora.
+          </p>
+          <div className="free-grid">
+            {[
+              ["♾️","Agentes Ilimitados","Crie quantos agentes precisar, sem restrição de quantidade ou funcionalidades."],
+              ["💬","Mensagens Ilimitadas","Seu bot atende sem limite de mensagens mensais. Atenda à vontade."],
+              ["📱","Dispositivos WhatsApp","Conecte seus números de WhatsApp e gerencie tudo em um só lugar."],
+            ].map(([icon, title, desc]) => (
+              <div className="free-card" key={String(title)}>
+                <div className="free-card-icon">{icon}</div>
+                <h3>{title}</h3>
+                <p>{desc}</p>
               </div>
-              <button className="btn-outline-full" onClick={() => navigate("/login")}>Começar Agora</button>
-              <ul className="plan-features">
-                {["1.000 mensagens / mês","1 dispositivo / número","Bot completo com I.A","Suporte padrão"].map(f => <li key={f}>✓ {f}</li>)}
-              </ul>
-            </div>
-            {/* Pro */}
-            <div className="pricing-card pricing-card--featured">
-              <div className="plan-badge">Mais Popular</div>
-              <div className="plan-name">Pro</div>
-              <div className="plan-tagline">Ideal para demandas maiores</div>
-              <div className="plan-price">
-                <span className="price-currency">R$</span>
-                <span className="price-amount">{quarterly ? PRICES.Pro.q : PRICES.Pro.m}</span>
-                <span className="price-period">/mês</span>
+            ))}
+          </div>
+          <div style={{ textAlign: "center", marginTop: 48 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 12, background: "linear-gradient(135deg, rgba(139,92,246,0.2), rgba(196,132,252,0.12))", border: "1px solid rgba(139,92,246,0.4)", borderRadius: 16, padding: "20px 40px" }}>
+              <span style={{ fontSize: "2rem" }}>💜</span>
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontWeight: 800, fontSize: "1.3rem", color: "#fff" }}>100% Gratuito</div>
+                <div style={{ fontSize: "0.88rem", color: "#a1a1aa" }}>Sem cartão de crédito · Acesso completo · Para sempre</div>
               </div>
-              <button className="btn-primary-full" onClick={() => navigate("/login")}>Começar Agora</button>
-              <ul className="plan-features">
-                {["Mensagens ilimitadas","1 dispositivo / número","Bot escuta áudios","Suporte padrão","Transferência para humano"].map(f => <li key={f}>✓ {f}</li>)}
-              </ul>
-            </div>
-            {/* Ultra */}
-            <div className="pricing-card">
-              <div className="plan-name">Ultra</div>
-              <div className="plan-tagline">Para demandas muito grandes</div>
-              <div className="plan-price">
-                <span className="price-currency">R$</span>
-                <span className="price-amount">{quarterly ? PRICES.Ultra.q : PRICES.Ultra.m}</span>
-                <span className="price-period">/mês</span>
-              </div>
-              <button className="btn-outline-full" onClick={() => navigate("/login")}>Começar Agora</button>
-              <ul className="plan-features">
-                {["Mensagens ilimitadas","2 dispositivos / números","Escuta e envia áudios","Suporte Premium","Agentes ilimitados","Broadcasts em massa"].map(f => <li key={f}>✓ {f}</li>)}
-              </ul>
             </div>
           </div>
         </div>
@@ -378,7 +337,7 @@ export default function LandingPage() {
               ["É possível o robô executar ações?","Sim! Via webhooks, o Bot.io pode acionar sistemas externos, atualizar CRMs, enviar notificações e muito mais sempre que uma condição for atingida na conversa."],
               ["Com quais documentos posso treinar meu agente?","PDFs, textos, URLs de sites, perguntas e respostas manuais, e em breve integração com Notion e Google Docs."],
               ["Meu WhatsApp pode ser banido?","O Bot.io usa comportamento humanizado com delays variáveis para simular digitação real. Ainda assim, recomendamos usar números dedicados ao bot, não seu número pessoal."],
-              ["Posso testar antes de pagar?","Sim! Oferecemos acesso gratuito para você testar a plataforma antes de assinar qualquer plano. Sem cartão de crédito necessário."],
+              ["O Bot.io é realmente gratuito?","Sim, 100% gratuito. Sem planos pagos, sem cartão de crédito. Basta criar sua conta e começar a usar agora mesmo."],
             ].map(([q, a]) => (
               <details className="faq-item" key={q}>
                 <summary>{q}</summary>
@@ -396,9 +355,9 @@ export default function LandingPage() {
             <div className="cta-glow" />
             <div className="section-tag">Para Negócios que Querem Crescer</div>
             <h2>Transforme seu WhatsApp com I.A!</h2>
-            <p>Faça parte dos negócios que estão transformando o atendimento no WhatsApp com inteligência artificial e inicie agora mesmo!</p>
+            <p>Faça parte dos negócios que estão transformando o atendimento no WhatsApp com inteligência artificial. Comece agora, é 100% gratuito.</p>
             <button className="btn-primary btn-large" onClick={() => navigate("/login")}>Começar Grátis Agora</button>
-            <p className="cta-note">Sem cartão de crédito · Cancele quando quiser</p>
+            <p className="cta-note">💜 Sem cartão de crédito · 100% gratuito · Acesso imediato</p>
           </div>
         </div>
       </section>
@@ -408,14 +367,17 @@ export default function LandingPage() {
         <div className="container">
           <div className="footer-top">
             <div className="footer-brand">
-              <Logo />
-              <p style={{ marginTop: 12 }}>Atendimento inteligente no WhatsApp com I.A. Simples, eficiente e poderoso.</p>
+              <div className="footer-logo">
+                <img src="/logo.jpg" alt="Bot.io" />
+                <span className="footer-logo-text">Bot.io</span>
+              </div>
+              <p>Atendimento inteligente no WhatsApp com I.A. Simples, eficiente e 100% gratuito.</p>
             </div>
             <div className="footer-links">
               <div className="footer-col">
                 <h4>Produto</h4>
                 <a href="#features" onClick={e => { e.preventDefault(); goTo("#features"); }}>Funcionalidades</a>
-                <a href="#pricing" onClick={e => { e.preventDefault(); goTo("#pricing"); }}>Preços</a>
+                <a href="#como-funciona" onClick={e => { e.preventDefault(); goTo("#como-funciona"); }}>Como Funciona</a>
                 <a href="/login" onClick={e => { e.preventDefault(); navigate("/login"); }}>Acessar</a>
               </div>
               <div className="footer-col">

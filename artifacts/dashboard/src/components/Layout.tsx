@@ -2,7 +2,7 @@ import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import {
   LayoutDashboard, Bot, Smartphone, MessageSquare,
-  Users, Zap, Settings, LogOut, Menu, X
+  Users, Zap, Settings, LogOut, Menu, UserCircle
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -20,6 +20,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
 
+  const initials = user?.name
+    ? user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    : '?';
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Mobile overlay */}
@@ -34,13 +38,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-          <div className="w-9 h-9 rounded-xl bg-sidebar-primary flex items-center justify-center">
-            <Bot className="w-5 h-5 text-white" />
-          </div>
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/5">
+          <img
+            src="/logo.jpg"
+            alt="Bot.io"
+            className="w-9 h-9 rounded-xl object-cover ring-1 ring-white/10"
+          />
           <div>
-            <p className="font-bold text-white text-sm">Bot.io</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate max-w-[120px]">{user?.name}</p>
+            <p className="font-bold text-white text-sm tracking-tight">Bot.io</p>
+            <p className="text-xs text-sidebar-foreground/50 truncate max-w-[120px]">{user?.name}</p>
           </div>
         </div>
 
@@ -54,8 +60,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 className={`
                   flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                   ${active
-                    ? 'bg-sidebar-primary text-white'
-                    : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                    ? 'bg-sidebar-primary text-white shadow-sm shadow-sidebar-primary/30'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                   }
                 `}>
                 <Icon className="w-4 h-4 shrink-0" />
@@ -66,14 +72,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Bottom */}
-        <div className="px-3 pb-4 space-y-0.5 border-t border-white/10 pt-4">
+        <div className="px-3 pb-4 border-t border-white/5 pt-4 space-y-0.5">
+          <Link href="/profile" onClick={() => setOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+              ${loc === '/profile'
+                ? 'bg-sidebar-primary text-white'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent transition-colors'
+              }`}>
+            <div className="w-5 h-5 rounded-full bg-sidebar-primary/40 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+              {initials}
+            </div>
+            Meu Perfil
+          </Link>
           <Link href="/settings" onClick={() => setOpen(false)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors">
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
+              ${loc === '/settings'
+                ? 'bg-sidebar-primary text-white'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent'
+              }`}>
             <Settings className="w-4 h-4" />
             Configurações
           </Link>
           <button onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-400 hover:bg-red-900/20 transition-colors">
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-400/80 hover:bg-red-950/30 hover:text-red-400 transition-colors">
             <LogOut className="w-4 h-4" />
             Sair
           </button>
@@ -87,7 +108,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-muted">
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-semibold text-sm">Bot.io</span>
+          <img src="/logo.jpg" alt="Bot.io" className="w-7 h-7 rounded-lg object-cover" />
+          <span className="font-bold text-sm">Bot.io</span>
         </header>
         <main className="flex-1 overflow-y-auto scrollbar-thin">
           {children}

@@ -7,6 +7,7 @@ interface AuthCtx {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthCtx | null>(null);
@@ -15,15 +16,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchUser = async () => {
+    const d = await api.get<{ user: User }>('/auth/me');
+    setUser(d.user);
+  };
+
   useEffect(() => {
-    api.get<{ user: User }>('/auth/me')
-      .then(d => setUser(d.user))
+    fetchUser()
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
-  // Quando qualquer requisição autenticada retorna 401 (sessão expirada),
-  // limpa o usuário sem fazer reload de página (evita loop de redirect)
   useEffect(() => {
     return onSessionExpired(() => setUser(null));
   }, []);
@@ -43,8 +46,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    const d = await api.get<{ user: User }>('/auth/me');
+    setUser(d.user);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
