@@ -31,8 +31,14 @@ async function listAgents(userId) {
 }
 
 async function createAgent(userId, data) {
-  const { name, systemPrompt = '', model = 'gpt-4o-mini', provider = 'openai',
-    debounceMs = 1500, maxTokens = 500, temperature = 0.7 } = data;
+  // aceita tanto snake_case (frontend) quanto camelCase
+  const name = data.name;
+  const systemPrompt = data.system_prompt ?? data.systemPrompt ?? '';
+  const model = data.model ?? 'gpt-4o-mini';
+  const provider = data.provider ?? 'openai';
+  const debounceMs = data.debounce_ms ?? data.debounceMs ?? 1500;
+  const maxTokens = data.max_tokens ?? data.maxTokens ?? 500;
+  const temperature = data.temperature ?? 0.7;
   const r = await db.query(
     `INSERT INTO agents(user_id, name, system_prompt, model, provider, debounce_ms, max_tokens, temperature)
      VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,

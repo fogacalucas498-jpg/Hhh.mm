@@ -71,6 +71,9 @@ export default defineConfig({
         target: "http://localhost:5000",
         changeOrigin: true,
         secure: false,
+        // SSE precisa de timeout 0 para não cortar a conexão
+        timeout: 0,
+        proxyTimeout: 0,
       },
     },
   },
