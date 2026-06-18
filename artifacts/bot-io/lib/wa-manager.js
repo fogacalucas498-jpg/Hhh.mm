@@ -484,6 +484,8 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
 
   // Destroyed flag — prevents saveCreds crashing after cleanup
   let isDestroyed = false;
+  // Set to true after requestPairingCode succeeds so close handler can notify frontend
+  let codeGenerated = false;
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
   const version = await getBaileysVersion();
@@ -517,8 +519,10 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
   });
 
   // --- Cleanup helper: idempotent, marks isDestroyed to gate saveCreds ---
-  const cleanup = async () => {
+  // expired=true → also emits pairing_code_expired so the frontend can auto-retry
+  const cleanup = async (expired = false) => {
     if (isDestroyed) return;
+    if (expired) emitSse(userId, 'pairing_code_expired', { deviceId });
     isDestroyed = true;
     sockets.delete(k);
     try { sock.end(); } catch (_) {}
@@ -572,8 +576,8 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
       appLogger.info({ event: 'device_disconnected_pairing', deviceId, code });
 
       if (entry.isPairing) {
-        // Code not yet entered — clean up without reconnecting
-        await cleanup();
+        // If code was already generated, notify frontend to auto-retry; otherwise silent cleanup
+        await cleanup(codeGenerated);
       } else if (isLoggedOut) {
         // Explicitly logged out after successful pairing
         await cleanup();
@@ -631,6 +635,7 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
   try {
     appLogger.info({ event: 'pairing_code_requesting', deviceId, phone: clean });
     const code = await sock.requestPairingCode(clean);
+    codeGenerated = true; // Marks that the code was delivered — close handler will emit pairing_code_expired
     appLogger.info({ event: 'pairing_code_generated', deviceId });
     return code;
   } catch (err) {

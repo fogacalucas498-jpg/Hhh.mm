@@ -1,10 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, Device, Agent } from '@/lib/api';
 import { useSSE } from '@/hooks/useSSE';
 import {
   Plus, Smartphone, QrCode, Wifi, WifiOff, Loader2, X,
-  LogOut, Trash2, ChevronDown, KeyRound, Copy, CheckCheck
+  LogOut, Trash2, ChevronDown, KeyRound, Copy, CheckCheck, RefreshCw
 } from 'lucide-react';
 
 function StatusBadge({ status }: { status: string }) {
@@ -56,30 +56,73 @@ function QRModal({ qr, onClose }: { qr: string | null; onClose: () => void }) {
   );
 }
 
-function PairingCodeModal({ deviceId, onClose }: { deviceId: number; onClose: () => void }) {
+function PairingCodeModal({
+  deviceId,
+  retrySignal,
+  onClose,
+}: {
+  deviceId: number;
+  retrySignal: number;
+  onClose: () => void;
+}) {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [autoRetrying, setAutoRetrying] = useState(false);
+  const [justRenewed, setJustRenewed] = useState(false);
 
-  const requestCode = async () => {
-    const clean = phone.replace(/\D/g, '');
+  const phoneRef = useRef('');
+  useEffect(() => { phoneRef.current = phone; }, [phone]);
+
+  const doRequest = useCallback(async (phoneNum: string, isAuto = false) => {
+    const clean = phoneNum.replace(/\D/g, '');
     if (clean.length < 10) {
-      setError('Digite o número completo com código do país (ex: 5511999999999)');
+      if (!isAuto) setError('Digite o número completo com código do país (ex: 5511999999999)');
       return;
     }
-    setLoading(true);
-    setError('');
+    if (isAuto) {
+      setAutoRetrying(true);
+      setCode(null);
+      setCopied(false);
+      setError('');
+    } else {
+      setLoading(true);
+      setError('');
+    }
     try {
-      const data = await api.post<{ ok: boolean; code: string }>(`/api/devices/${deviceId}/pairing-code`, { phone: clean });
+      const data = await api.post<{ ok: boolean; code: string }>(
+        `/api/devices/${deviceId}/pairing-code`,
+        { phone: clean }
+      );
       setCode(data.code);
+      setCopied(false);
+      if (isAuto) setJustRenewed(true);
     } catch (e: unknown) {
       setError((e as Error).message || 'Erro ao solicitar código');
     } finally {
       setLoading(false);
+      setAutoRetrying(false);
     }
-  };
+  }, [deviceId]);
+
+  const requestCode = () => doRequest(phone, false);
+
+  // Auto-retry when pairing_code_expired SSE fires (retrySignal increments)
+  useEffect(() => {
+    if (retrySignal === 0) return;
+    const clean = phoneRef.current.replace(/\D/g, '');
+    if (clean.length < 10) return; // No valid phone stored — can't retry silently
+    doRequest(clean, true);
+  }, [retrySignal, doRequest]);
+
+  // Clear "renovado" badge after 4 seconds
+  useEffect(() => {
+    if (!justRenewed) return;
+    const t = setTimeout(() => setJustRenewed(false), 4000);
+    return () => clearTimeout(t);
+  }, [justRenewed]);
 
   const copyCode = async () => {
     if (!code) return;
@@ -100,7 +143,17 @@ function PairingCodeModal({ deviceId, onClose }: { deviceId: number; onClose: ()
         </div>
 
         <div className="px-6 py-5 space-y-4">
-          {!code ? (
+          {/* Auto-retrying state */}
+          {autoRetrying ? (
+            <div className="py-8 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto">
+                <RefreshCw className="w-6 h-6 text-amber-600 dark:text-amber-400 animate-spin" />
+              </div>
+              <p className="font-medium text-sm">Código expirado</p>
+              <p className="text-sm text-muted-foreground">Obtendo novo código automaticamente…</p>
+            </div>
+          ) : !code ? (
+            /* Phone input form */
             <>
               <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 text-sm text-foreground/70 space-y-1">
                 <p className="font-medium text-foreground">Como funciona:</p>
@@ -113,6 +166,7 @@ function PairingCodeModal({ deviceId, onClose }: { deviceId: number; onClose: ()
                 <input
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !loading && requestCode()}
                   placeholder="5511999999999 (com código do país)"
                   className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   type="tel"
@@ -133,7 +187,16 @@ function PairingCodeModal({ deviceId, onClose }: { deviceId: number; onClose: ()
               </button>
             </>
           ) : (
+            /* Code display */
             <>
+              {/* Auto-renewed badge */}
+              {justRenewed && (
+                <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 text-xs rounded-lg px-3 py-2">
+                  <RefreshCw className="w-3.5 h-3.5 flex-shrink-0" />
+                  Código renovado automaticamente
+                </div>
+              )}
+
               <div className="text-center py-2">
                 <p className="text-sm text-muted-foreground mb-4">Digite este código no seu WhatsApp:</p>
                 <div className="inline-flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-2xl px-8 py-5">
@@ -143,7 +206,7 @@ function PairingCodeModal({ deviceId, onClose }: { deviceId: number; onClose: ()
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-4">
-                  O código expira em 60 segundos
+                  Se o código expirar, um novo será gerado automaticamente
                 </p>
               </div>
               <div className="bg-muted/50 rounded-xl p-4 text-xs text-muted-foreground space-y-1">
@@ -153,7 +216,7 @@ function PairingCodeModal({ deviceId, onClose }: { deviceId: number; onClose: ()
                 <p>⌨️ Digite o código acima</p>
               </div>
               <button
-                onClick={() => { setCode(null); setPhone(''); }}
+                onClick={() => { setCode(null); setPhone(''); setJustRenewed(false); }}
                 className="w-full px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted"
               >
                 Gerar novo código
@@ -220,6 +283,7 @@ export default function DevicesPage() {
   const [newModal, setNewModal] = useState(false);
   const [qrModal, setQrModal] = useState<{ id: number; qr: string | null } | null>(null);
   const [pairingModal, setPairingModal] = useState<number | null>(null);
+  const [pairingRetrySignal, setPairingRetrySignal] = useState(0);
 
   const { data: devicesData, isLoading } = useQuery({ queryKey: ['devices'], queryFn: () => api.get<{ devices: Device[] }>('/api/devices') });
   const { data: agentsData } = useQuery({ queryKey: ['agents'], queryFn: () => api.get<{ agents: Agent[] }>('/api/agents') });
@@ -227,8 +291,13 @@ export default function DevicesPage() {
   const devices = devicesData?.devices ?? [];
   const agents = agentsData?.agents ?? [];
 
+  // Use a ref to always have the latest pairingModal value inside the SSE callback
+  const pairingModalRef = useRef<number | null>(null);
+  useEffect(() => { pairingModalRef.current = pairingModal; }, [pairingModal]);
+
   useSSE(true, (event, data: unknown) => {
     const d = data as Record<string, unknown>;
+
     if (event === 'device_status') {
       qc.setQueryData(['devices'], (old: { devices: Device[] } | undefined) => {
         if (!old) return old;
@@ -241,10 +310,18 @@ export default function DevicesPage() {
         };
       });
       if (d.status === 'connected' && qrModal?.id === Number(d.deviceId)) setQrModal(null);
-      if (d.status === 'connected' && pairingModal === Number(d.deviceId)) setPairingModal(null);
+      if (d.status === 'connected' && pairingModalRef.current === Number(d.deviceId)) setPairingModal(null);
     }
+
     if (event === 'device_qr') {
       if (qrModal?.id === Number(d.deviceId)) setQrModal({ id: Number(d.deviceId), qr: String(d.qr) });
+    }
+
+    // Pairing code expired — auto-retry if that device's modal is open
+    if (event === 'pairing_code_expired') {
+      if (pairingModalRef.current === Number(d.deviceId)) {
+        setPairingRetrySignal(s => s + 1);
+      }
     }
   });
 
@@ -319,7 +396,7 @@ export default function DevicesPage() {
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:opacity-90">
                       <QrCode className="w-3.5 h-3.5" /> QR Code
                     </button>
-                    <button onClick={() => setPairingModal(d.id)}
+                    <button onClick={() => { setPairingRetrySignal(0); setPairingModal(d.id); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500 text-white text-xs font-medium hover:opacity-90">
                       <KeyRound className="w-3.5 h-3.5" /> Via Código
                     </button>
@@ -331,7 +408,7 @@ export default function DevicesPage() {
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 text-white text-xs font-medium">
                       <QrCode className="w-3.5 h-3.5" /> Ver QR
                     </button>
-                    <button onClick={() => setPairingModal(d.id)}
+                    <button onClick={() => { setPairingRetrySignal(0); setPairingModal(d.id); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted">
                       <KeyRound className="w-3.5 h-3.5" /> Via Código
                     </button>
@@ -361,7 +438,13 @@ export default function DevicesPage() {
 
       {newModal && <NewDeviceModal agents={agents} onClose={() => setNewModal(false)} />}
       {qrModal && <QRModal qr={qrModal.qr} onClose={() => setQrModal(null)} />}
-      {pairingModal !== null && <PairingCodeModal deviceId={pairingModal} onClose={() => setPairingModal(null)} />}
+      {pairingModal !== null && (
+        <PairingCodeModal
+          deviceId={pairingModal}
+          retrySignal={pairingRetrySignal}
+          onClose={() => setPairingModal(null)}
+        />
+      )}
     </div>
   );
 }
