@@ -5,7 +5,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import {
   LayoutDashboard, Bot, Smartphone, MessageSquare,
   Users, Zap, Settings, LogOut, Menu, Bell, X,
-  MessageCircle, Wifi, WifiOff, Info, Sun, Moon
+  MessageCircle, Wifi, WifiOff, Info, Sun, Moon, Activity
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -16,6 +16,7 @@ const navItems = [
   { to: '/messages', icon: MessageSquare, label: 'Mensagens' },
   { to: '/contacts', icon: Users, label: 'Contatos' },
   { to: '/flows', icon: Zap, label: 'Fluxos' },
+  { to: '/monitor', icon: Activity, label: 'Monitor' },
 ];
 
 function NotifIcon({ type }: { type: string }) {

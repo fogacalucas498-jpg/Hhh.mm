@@ -14,6 +14,7 @@ import ContactsPage from "@/pages/ContactsPage";
 import FlowsPage from "@/pages/FlowsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ProfilePage from "@/pages/ProfilePage";
+import MonitorPage from "@/pages/MonitorPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -53,6 +54,7 @@ function AppRoutes() {
           <Route path="/messages" component={MessagesPage} />
           <Route path="/contacts" component={ContactsPage} />
           <Route path="/flows" component={FlowsPage} />
+          <Route path="/monitor" component={MonitorPage} />
           <Route path="/settings" component={SettingsPage} />
           <Route path="/profile" component={ProfilePage} />
           <Route path="/login"><Redirect to="/" /></Route>
