@@ -32,6 +32,7 @@ const { runMigrations } = require('./lib/migrations');
 const wa = require('./lib/wa-manager');
 const { startKeepAlive } = require('./keep-alive');
 const { startWatchdog } = require('./watchdog');
+const { startScheduler } = require('./lib/broadcast');
 
 const authRouter = require('./routes/auth');
 const apiRouter = require('./routes/api');
@@ -133,6 +134,7 @@ async function start() {
 
     startKeepAlive();
     startWatchdog({ port: PORT, logger });
+    startScheduler();
   } catch (err) {
     logger.error({ event: 'startup_failed', err: err.message });
     process.exit(1);

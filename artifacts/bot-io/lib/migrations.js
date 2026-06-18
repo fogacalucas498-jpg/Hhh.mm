@@ -160,6 +160,14 @@ const MIGRATIONS = [
     `
   },
   {
+    id: 5,
+    name: 'broadcasts_scheduled_at',
+    sql: `
+      ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;
+      CREATE INDEX IF NOT EXISTS broadcasts_scheduled ON broadcasts(scheduled_at) WHERE status = 'scheduled';
+    `
+  },
+  {
     id: 4,
     name: 'broadcasts',
     sql: `

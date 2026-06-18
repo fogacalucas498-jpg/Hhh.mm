@@ -517,8 +517,8 @@ router.get('/stats', async (req, res) => {
 // ── BROADCASTS ────────────────────────────────────────────────────────────────
 router.get('/broadcasts', async (req, res) => {
   try {
-    const { limit, offset } = req.query;
-    const broadcasts = await broadcastLib.listBroadcasts(req.userId, { limit, offset });
+    const { limit, offset, status } = req.query;
+    const broadcasts = await broadcastLib.listBroadcasts(req.userId, { limit, offset, status });
     res.json({ broadcasts });
   } catch (e) { handleApiError(res, e); }
 });
