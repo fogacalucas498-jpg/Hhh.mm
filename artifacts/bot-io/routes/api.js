@@ -353,6 +353,82 @@ router.post('/devices/:id/pairing-code', async (req, res) => {
   }
 });
 
+// ── CONVERSATIONS ─────────────────────────────────────────────────────────────
+// List of distinct contacts with their last message — the chat inbox view
+router.get('/conversations', async (req, res) => {
+  try {
+    const { search, limit = 40, offset = 0 } = req.query;
+    const vals = [req.userId];
+
+    let searchClause = '';
+    if (search) {
+      vals.push(`%${search}%`);
+      searchClause = `AND (c.name ILIKE $${vals.length} OR last_msgs.contact_jid ILIKE $${vals.length})`;
+    }
+
+    const r = await db.query(`
+      SELECT
+        last_msgs.contact_jid,
+        last_msgs.body        AS last_body,
+        last_msgs.direction   AS last_direction,
+        last_msgs.msg_type    AS last_msg_type,
+        last_msgs.created_at  AS last_at,
+        last_msgs.agent_id    AS last_agent_id,
+        c.name                AS contact_name,
+        c.phone               AS contact_phone,
+        c.tags                AS contact_tags,
+        (SELECT COUNT(*)::int FROM messages WHERE user_id=$1 AND contact_jid = last_msgs.contact_jid) AS message_count
+      FROM (
+        SELECT DISTINCT ON (contact_jid)
+          contact_jid, body, direction, msg_type, created_at, agent_id
+        FROM messages
+        WHERE user_id = $1
+        ORDER BY contact_jid, created_at DESC
+      ) last_msgs
+      LEFT JOIN contacts c ON c.jid = last_msgs.contact_jid AND c.user_id = $1
+      WHERE 1=1 ${searchClause}
+      ORDER BY last_msgs.created_at DESC
+      LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}
+    `, [...vals, Math.min(Number(limit), 200), Number(offset)]);
+
+    res.json({ conversations: r.rows });
+  } catch (e) { handleApiError(res, e); }
+});
+
+// Paginated message thread for a single contact JID
+router.get('/conversations/:jid/messages', async (req, res) => {
+  try {
+    const { limit = 50, before } = req.query;
+    const jid = decodeURIComponent(req.params.jid);
+    const vals = [req.userId, jid, Math.min(Number(limit), 100)];
+
+    let beforeClause = '';
+    if (before) {
+      vals.push(Number(before));
+      beforeClause = `AND m.id < $${vals.length}`;
+    }
+
+    const r = await db.query(`
+      SELECT
+        m.id, m.direction, m.body, m.msg_type, m.created_at,
+        m.device_id, m.agent_id, m.wa_msg_id,
+        d.name  AS device_name,
+        ag.name AS agent_name
+      FROM messages m
+      LEFT JOIN agent_devices d  ON d.id  = m.device_id
+      LEFT JOIN agents        ag ON ag.id = m.agent_id
+      WHERE m.user_id = $1 AND m.contact_jid = $2 ${beforeClause}
+      ORDER BY m.id DESC
+      LIMIT $3
+    `, vals);
+
+    // Return oldest-first so the UI can append at the bottom
+    const messages = r.rows.reverse();
+    const hasMore = r.rows.length === Number(limit);
+    res.json({ messages, hasMore });
+  } catch (e) { handleApiError(res, e); }
+});
+
 // ── MESSAGES ──────────────────────────────────────────────────────────────────
 router.get('/messages', async (req, res) => {
   try {
