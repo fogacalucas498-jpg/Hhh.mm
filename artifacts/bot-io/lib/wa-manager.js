@@ -285,34 +285,49 @@ async function handleGroupMessage(userId, deviceId, sock, m) {
   await handleIncoming(userId, deviceId, agent.id, sock, m);
 }
 
+// Maximum reconnect attempts before giving up (prevents runaway memory growth)
+const MAX_RECONNECT = 10;
+const reconnectCounts = new Map();
+
 async function startDevice(userId, deviceId) {
   const k = key(deviceId);
   if (sockets.has(k) && sockets.get(k).status === 'connected') return;
 
   const sessionDir = path.join(SESSIONS_DIR, `device_${deviceId}`);
-  fs.mkdirSync(sessionDir, { recursive: true });
+
+  // --- Setup: auth state + socket creation — failures must NOT crash the server ---
+  let state, saveCreds, sock;
+  try {
+    fs.mkdirSync(sessionDir, { recursive: true });
+    ({ state, saveCreds } = await useMultiFileAuthState(sessionDir));
+    const version = await getBaileysVersion();
+    sock = makeWASocket({
+      version,
+      logger,
+      auth: state,
+      printQRInTerminal: false,
+      browser: ['Chrome (Linux)', 'Chrome', '120.0.0'],
+      connectTimeoutMs: 30_000,
+      keepAliveIntervalMs: 15_000,
+      retryRequestDelayMs: 500,
+      syncFullHistory: false,
+      generateHighQualityLinkPreview: false,
+    });
+  } catch (e) {
+    appLogger.error({ event: 'start_device_setup_failed', deviceId, err: e.message });
+    sockets.delete(k);
+    db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId]).catch(() => {});
+    emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
+    return; // abort — do not propagate, server stays alive
+  }
 
   let isDestroyed = false;
-  const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-  const version = await getBaileysVersion();
-
-  const sock = makeWASocket({
-    version,
-    logger,
-    auth: state,
-    printQRInTerminal: false,
-    browser: ['Chrome (Linux)', 'Chrome', '120.0.0'],
-    connectTimeoutMs: 30_000,
-    keepAliveIntervalMs: 15_000,
-    retryRequestDelayMs: 500,
-    syncFullHistory: false,
-    generateHighQualityLinkPreview: false,
-  });
-
   const entry = { sock, status: 'connecting', userId, deviceId, qr: null };
   sockets.set(k, entry);
 
-  await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['connecting', deviceId]);
+  db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['connecting', deviceId]).catch(e =>
+    appLogger.warn({ event: 'db_update_connecting_failed', deviceId, err: e.message })
+  );
   emitSse(userId, 'device_status', { deviceId, status: 'connecting' });
 
   // Safe saveCreds — never crashes if session dir was already deleted
@@ -324,73 +339,112 @@ async function startDevice(userId, deviceId) {
   });
 
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
-    if (qr) {
-      try {
-        const QRCode = require('qrcode');
-        const qrDataUrl = await QRCode.toDataURL(qr);
-        entry.qr = qrDataUrl;
-        entry.status = 'qr';
-        await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['qr', deviceId]);
-        emitSse(userId, 'device_qr', { deviceId, qr: qrDataUrl });
-      } catch (e) {
-        appLogger.warn({ event: 'qr_generate_error', deviceId, err: e.message });
+    // Entire handler wrapped — an async event handler that throws becomes an
+    // unhandled rejection which can crash the process on Node 15+
+    try {
+      if (qr) {
+        try {
+          const QRCode = require('qrcode');
+          const qrDataUrl = await QRCode.toDataURL(qr);
+          entry.qr = qrDataUrl;
+          entry.status = 'qr';
+          await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['qr', deviceId]);
+          emitSse(userId, 'device_qr', { deviceId, qr: qrDataUrl });
+        } catch (e) {
+          appLogger.warn({ event: 'qr_generate_error', deviceId, err: e.message });
+        }
       }
-    }
 
-    if (connection === 'open') {
-      entry.status = 'connected';
-      entry.qr = null;
-      const phone = sock.user?.id?.split(':')[0] || null;
-      await db.query(
-        'UPDATE agent_devices SET status=$1, phone=$2, updated_at=NOW() WHERE id=$3',
-        ['connected', phone, deviceId]
-      );
-      appLogger.info({ event: 'device_connected', deviceId, phone });
-      emitSse(userId, 'device_status', { deviceId, status: 'connected', phone });
-    }
-
-    if (connection === 'close') {
-      if (isDestroyed) return;
-      const code = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = code !== DisconnectReason.loggedOut;
-      entry.status = 'disconnected';
-      await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId]);
-      emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
-      appLogger.info({ event: 'device_disconnected', deviceId, code, shouldReconnect });
-
-      if (shouldReconnect) {
-        await new Promise(r => setTimeout(r, 5000));
-        const current = sockets.get(k);
-        if (current && current.isPairing) return;
-        if (current && current.status === 'connected') return;
-        startDevice(userId, deviceId).catch(e =>
-          appLogger.error({ event: 'reconnect_failed', deviceId, err: e.message })
-        );
-      } else {
-        isDestroyed = true;
-        sockets.delete(k);
-        const sessionDir2 = path.join(SESSIONS_DIR, `device_${deviceId}`);
-        fs.rmSync(sessionDir2, { recursive: true, force: true });
+      if (connection === 'open') {
+        entry.status = 'connected';
+        entry.qr = null;
+        reconnectCounts.delete(k); // reset counter on successful connect
+        const phone = sock.user?.id?.split(':')[0] || null;
+        try {
+          await db.query(
+            'UPDATE agent_devices SET status=$1, phone=$2, updated_at=NOW() WHERE id=$3',
+            ['connected', phone, deviceId]
+          );
+        } catch (e) {
+          appLogger.warn({ event: 'db_update_connected_failed', deviceId, err: e.message });
+        }
+        appLogger.info({ event: 'device_connected', deviceId, phone });
+        emitSse(userId, 'device_status', { deviceId, status: 'connected', phone });
       }
+
+      if (connection === 'close') {
+        if (isDestroyed) return;
+        const code = lastDisconnect?.error?.output?.statusCode;
+        const shouldReconnect = code !== DisconnectReason.loggedOut;
+        entry.status = 'disconnected';
+        try {
+          await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId]);
+        } catch (e) {
+          appLogger.warn({ event: 'db_update_disconnected_failed', deviceId, err: e.message });
+        }
+        emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
+        appLogger.info({ event: 'device_disconnected', deviceId, code, shouldReconnect });
+
+        if (shouldReconnect) {
+          const attempts = (reconnectCounts.get(k) || 0) + 1;
+          reconnectCounts.set(k, attempts);
+
+          if (attempts > MAX_RECONNECT) {
+            appLogger.warn({ event: 'reconnect_limit_reached', deviceId, attempts });
+            reconnectCounts.delete(k);
+            isDestroyed = true;
+            sockets.delete(k);
+            return;
+          }
+
+          // Exponential back-off capped at 60s
+          const delay = Math.min(5000 * Math.pow(1.5, attempts - 1), 60_000);
+          await new Promise(r => setTimeout(r, delay));
+          const current = sockets.get(k);
+          if (current && current.isPairing) return;
+          if (current && current.status === 'connected') return;
+          startDevice(userId, deviceId).catch(e =>
+            appLogger.error({ event: 'reconnect_failed', deviceId, err: e.message })
+          );
+        } else {
+          isDestroyed = true;
+          reconnectCounts.delete(k);
+          sockets.delete(k);
+          const sessionDir2 = path.join(SESSIONS_DIR, `device_${deviceId}`);
+          try { fs.rmSync(sessionDir2, { recursive: true, force: true }); } catch (_) {}
+        }
+      }
+    } catch (e) {
+      appLogger.error({ event: 'connection_update_handler_error', deviceId, err: e.message });
     }
   });
 
   sock.ev.on('messages.upsert', async ({ messages: msgs, type }) => {
     if (type !== 'notify') return;
     for (const m of msgs) {
-      if (!m.message) continue;
-      const jid = m.key.remoteJid || '';
-      const deviceRow = await db.query('SELECT agent_id FROM agent_devices WHERE id=$1', [deviceId]);
-      const agentId = deviceRow.rows[0]?.agent_id;
-      if (!agentId) continue;
-      if (jid.endsWith('@g.us')) {
-        handleGroupMessage(userId, deviceId, sock, m).catch(e =>
-          appLogger.error({ event: 'group_msg_error', deviceId, err: e.message })
-        );
-      } else {
-        handleIncoming(userId, deviceId, agentId, sock, m).catch(e =>
-          appLogger.error({ event: 'incoming_error', deviceId, err: e.message })
-        );
+      try {
+        if (!m.message) continue;
+        const jid = m.key.remoteJid || '';
+        let agentId;
+        try {
+          const deviceRow = await db.query('SELECT agent_id FROM agent_devices WHERE id=$1', [deviceId]);
+          agentId = deviceRow.rows[0]?.agent_id;
+        } catch (e) {
+          appLogger.warn({ event: 'db_fetch_agent_failed', deviceId, err: e.message });
+          continue;
+        }
+        if (!agentId) continue;
+        if (jid.endsWith('@g.us')) {
+          handleGroupMessage(userId, deviceId, sock, m).catch(e =>
+            appLogger.error({ event: 'group_msg_error', deviceId, err: e.message })
+          );
+        } else {
+          handleIncoming(userId, deviceId, agentId, sock, m).catch(e =>
+            appLogger.error({ event: 'incoming_error', deviceId, err: e.message })
+          );
+        }
+      } catch (e) {
+        appLogger.error({ event: 'messages_upsert_handler_error', deviceId, err: e.message });
       }
     }
   });
