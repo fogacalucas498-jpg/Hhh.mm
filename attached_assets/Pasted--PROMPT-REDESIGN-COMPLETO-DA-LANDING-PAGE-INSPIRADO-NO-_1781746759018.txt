@@ -1,0 +1,698 @@
+# PROMPT — REDESIGN COMPLETO DA LANDING PAGE (INSPIRADO NO CONVERZA.IO)
+# Cole este prompt no Replit AI DEPOIS de fazer upload da sua logo
+
+---
+
+## PRÉ-REQUISITO: LOGO
+
+**ANTES de executar este prompt:**
+1. Faça upload da sua logo para o Replit
+2. Mova o arquivo para: `public/uploads/logo-botio.png` (ou .svg)
+3. O prompt vai referenciar esse caminho — ajuste o nome do arquivo se for diferente
+
+---
+
+Você é um designer frontend especialista em landing pages SaaS modernas. Vou te pedir para **recriar completamente** os arquivos `public/index.html` e `public/styles.css` com um design inspirado no site https://converza.io/ — mesma linguagem visual, mesmo estilo, mesma estrutura de seções — mas com os textos, nome e identidade da **minha plataforma Bot.io**.
+
+Não altere nenhum arquivo de backend. Só mexa em: `public/index.html`, `public/styles.css`, e se necessário `public/script.js` (apenas para animações da landing page).
+
+---
+
+## IDENTIDADE DA PLATAFORMA
+
+- **Nome:** Bot.io
+- **Tagline:** Atendimento inteligente no WhatsApp com I.A
+- **Logo:** usar o arquivo `/uploads/logo-botio.png` (coloque dentro da tag `<img>` com altura máxima de 36px)
+- **Favicon:** manter o existente (`/favicon.svg`)
+- **Links principais:**
+  - Login/Acessar → `/dashboard`
+  - Cadastre-se → `/dashboard`
+  - Preços → `#pricing` (âncora na própria página)
+
+---
+
+## PALETA DE CORES EXATA (copie pixel a pixel do Converza.io)
+
+```css
+:root {
+  /* Fundos */
+  --bg-primary:    #08090a;   /* fundo principal — quase preto */
+  --bg-secondary:  #0f1117;   /* cards e seções alternadas */
+  --bg-card:       #141720;   /* cards com borda sutil */
+
+  /* Verdes WhatsApp (CTAs e destaques) */
+  --green-primary: #25d366;   /* verde WhatsApp puro */
+  --green-hover:   #1da851;   /* hover dos botões */
+  --green-glow:    rgba(37,211,102,0.15); /* brilho difuso */
+
+  /* Roxo/Índigo (gradientes e destaques secundários) */
+  --purple-accent: #7c3aed;
+  --purple-light:  rgba(124,58,237,0.2);
+
+  /* Textos */
+  --text-primary:  #ffffff;
+  --text-secondary:#a1a1aa;   /* subtítulos e labels */
+  --text-muted:    #71717a;   /* placeholders e rodapé */
+
+  /* Bordas */
+  --border-subtle: rgba(255,255,255,0.07);
+  --border-card:   rgba(255,255,255,0.10);
+
+  /* Gradiente de fundo hero */
+  --gradient-hero: radial-gradient(ellipse 80% 60% at 50% -20%, rgba(37,211,102,0.12), transparent),
+                   radial-gradient(ellipse 60% 40% at 80% 50%, rgba(124,58,237,0.08), transparent);
+}
+```
+
+---
+
+## TIPOGRAFIA
+
+```css
+/* Import no início do CSS */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+/* Headlines */
+h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; }
+h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+h3 { font-size: 1.25rem; font-weight: 600; }
+```
+
+---
+
+## ESTRUTURA COMPLETA DA PÁGINA
+
+Crie o `public/index.html` com EXATAMENTE estas seções na ordem:
+
+### SEÇÃO 1 — NAVBAR
+
+```html
+<nav class="navbar">
+  <div class="nav-container">
+    <a href="/" class="nav-logo">
+      <img src="/uploads/logo-botio.png" alt="Bot.io" height="36">
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Funcionalidades</a></li>
+      <li><a href="#como-funciona">Como Funciona</a></li>
+      <li><a href="#pricing">Preços</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="/dashboard" class="btn-ghost">Acessar</a>
+      <a href="/dashboard" class="btn-primary">Começar Grátis</a>
+    </div>
+    <button class="nav-mobile-toggle" id="mobileToggle">☰</button>
+  </div>
+</nav>
+```
+
+**CSS da Navbar:**
+- Fundo: `rgba(8,9,10,0.85)` com `backdrop-filter: blur(20px)`
+- `position: sticky; top: 0; z-index: 100`
+- Borda inferior: `1px solid var(--border-subtle)`
+- Links: `var(--text-secondary)`, hover: `var(--text-primary)`
+- `.btn-primary`: background `var(--green-primary)`, cor preta, border-radius `8px`, padding `10px 20px`, `font-weight: 600`
+- `.btn-ghost`: border `1px solid var(--border-card)`, cor `var(--text-secondary)`, hover: border branco
+
+---
+
+### SEÇÃO 2 — HERO
+
+```html
+<section class="hero" id="home">
+  <div class="hero-bg-gradient"></div>
+  <div class="hero-container">
+    <div class="hero-badge">
+      <span class="badge-dot"></span>
+      Plataforma de Atendimento com I.A
+    </div>
+    <h1 class="hero-title">
+      Transforme seu WhatsApp<br>
+      com <span class="text-gradient-green">Inteligência Artificial</span>
+    </h1>
+    <p class="hero-subtitle">
+      Com o <strong>Bot.io</strong>, crie agentes de I.A treinados com o conhecimento
+      do seu negócio e atenda clientes no WhatsApp de forma automática,
+      natural e eficiente. Sem código, sem complicação.
+    </p>
+    <div class="hero-actions">
+      <a href="/dashboard" class="btn-primary btn-large">
+        Cadastre-se Grátis
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <span class="hero-note">Sem cartão de crédito · Comece em 2 minutos</span>
+    </div>
+    <!-- Dashboard screenshot mockup -->
+    <div class="hero-mockup">
+      <div class="hero-mockup-inner">
+        <div class="mockup-topbar">
+          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+          <span class="mockup-url">app.bot.io/dashboard</span>
+        </div>
+        <div class="mockup-screen">
+          <div class="mockup-sidebar">
+            <div class="mockup-nav-item active">🤖 Agentes</div>
+            <div class="mockup-nav-item">📱 Dispositivos</div>
+            <div class="mockup-nav-item">💬 Conversas</div>
+            <div class="mockup-nav-item">📊 Relatórios</div>
+          </div>
+          <div class="mockup-content">
+            <div class="mockup-card">
+              <div class="mockup-card-header">
+                <div class="mockup-avatar green"></div>
+                <div class="mockup-info"><div class="mockup-name">Agente Vendas</div><div class="mockup-status">● Online</div></div>
+              </div>
+              <div class="mockup-stat"><span>Mensagens hoje</span><strong>1.247</strong></div>
+              <div class="mockup-stat"><span>Taxa de resposta</span><strong>98.2%</strong></div>
+            </div>
+            <div class="mockup-chat">
+              <div class="chat-msg in">Olá! Queria saber mais sobre o produto 😊</div>
+              <div class="chat-msg out">Claro! Fico feliz em ajudar. Qual é sua principal dúvida?</div>
+              <div class="chat-msg in">Qual o prazo de entrega?</div>
+              <div class="chat-typing"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+**CSS do Hero:**
+- `padding: 120px 0 80px`
+- `.hero-bg-gradient`: `position: absolute; inset: 0; background: var(--gradient-hero); pointer-events: none`
+- `.hero-badge`: pill com borda `var(--border-card)`, badge-dot verde piscando (`animation: pulse 2s infinite`)
+- `.text-gradient-green`: `background: linear-gradient(135deg, #25d366, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent`
+- `.hero-mockup`: sombra `0 0 80px rgba(37,211,102,0.15)`, borda `1px solid var(--border-card)`, border-radius `16px`
+- Mockup browser com barra cinza escura e os 3 dots coloridos
+- `.chat-typing span`: animação bounce com delay entre os 3 dots
+
+---
+
+### SEÇÃO 3 — MARQUEE (TICKER) DE FEATURES
+
+```html
+<section class="marquee-section">
+  <div class="marquee-track">
+    <div class="marquee-inner">
+      <!-- repita 2x para loop contínuo -->
+      <span>🤖 Múltiplos Agentes</span>
+      <span>⚡ IA Powered</span>
+      <span>☁️ 100% Cloud</span>
+      <span>📊 Relatórios Precisos</span>
+      <span>🔒 Segurança LGPD</span>
+      <span>📁 Treina com PDFs</span>
+      <span>🎙️ Transcreve Áudios</span>
+      <span>📱 Múltiplos Números</span>
+      <span>⏰ Economize Tempo</span>
+      <span>👥 Controle os Leads</span>
+      <span>🔧 Fácil Configuração</span>
+      <span>💳 Sem Fidelidade</span>
+    </div>
+  </div>
+</section>
+```
+
+**CSS do Marquee:**
+- Background: `var(--bg-secondary)` com `border-top/bottom: 1px solid var(--border-subtle)`
+- `overflow: hidden; padding: 16px 0`
+- `.marquee-inner`: `display: flex; gap: 48px; animation: marquee 30s linear infinite`
+- `@keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }`
+- Itens: `white-space: nowrap; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500`
+
+---
+
+### SEÇÃO 4 — FEATURES (PLATAFORMA COMPLETA)
+
+```html
+<section class="features" id="features">
+  <div class="container">
+    <div class="section-tag">Perfeita Para Qualquer Negócio</div>
+    <h2>A Plataforma completa<br>para agentes de I.A</h2>
+    <p class="section-subtitle">O Bot.io é uma plataforma focada na construção de agentes de I.A que resolvem as dores do seu cliente e aumentam seus lucros.</p>
+
+    <div class="features-grid">
+      <!-- Card 1 -->
+      <div class="feature-card feature-card--highlight">
+        <div class="feature-icon">🚀</div>
+        <h3>Impulsione Satisfação e Fidelidade</h3>
+        <p>Com o nosso construtor de agentes, sua única preocupação é fornecer a base de conhecimento e conectar seu WhatsApp. A I.A faz o resto.</p>
+        <div class="feature-mockup-preview">
+          <div class="preview-line"></div>
+          <div class="preview-line short"></div>
+          <div class="preview-line medium"></div>
+        </div>
+      </div>
+      <!-- Card 2 -->
+      <div class="feature-card">
+        <div class="feature-icon">🎛️</div>
+        <h3>Controle que Reflete Excelência</h3>
+        <p>Administre o conteúdo ensinado ao seu agente com o nosso editor poderoso e extremamente simples de usar.</p>
+      </div>
+      <!-- Card 3 -->
+      <div class="feature-card">
+        <div class="feature-icon">📚</div>
+        <h3>Embarque Conhecimento de Forma Simples</h3>
+        <p>PDFs, sites, instruções ou perguntas frequentes — diversas formas de alimentar o conhecimento da sua empresa para o agente.</p>
+      </div>
+      <!-- Card 4 -->
+      <div class="feature-card">
+        <div class="feature-icon">🎙️</div>
+        <h3>Entende e Responde em Áudio</h3>
+        <p>Seus clientes mandam áudio? O Bot.io transcreve, entende e pode responder também em áudio com voz natural.</p>
+      </div>
+      <!-- Card 5 -->
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Dashboards e Relatórios em Tempo Real</h3>
+        <p>Acompanhe conversas, leads capturados e desempenho dos agentes com métricas claras e acionáveis.</p>
+      </div>
+      <!-- Card 6 -->
+      <div class="feature-card">
+        <div class="feature-icon">🔁</div>
+        <h3>Transferência para Humano</h3>
+        <p>Quando o cliente precisar de um atendente humano, o agente transfere automaticamente com todo o contexto da conversa.</p>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+**CSS das Features:**
+- `.features-grid`: `display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px`
+- `.feature-card`: `background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; padding: 28px; transition: transform 0.2s, border-color 0.2s`
+- Hover: `transform: translateY(-4px); border-color: rgba(37,211,102,0.3)`
+- `.feature-card--highlight`: `grid-column: span 2; background: linear-gradient(135deg, var(--bg-card), rgba(37,211,102,0.05))`
+- `.feature-icon`: `font-size: 2rem; margin-bottom: 16px`
+
+---
+
+### SEÇÃO 5 — COMO FUNCIONA (3 PASSOS)
+
+```html
+<section class="how-it-works" id="como-funciona">
+  <div class="container">
+    <div class="section-tag">Simples do início ao fim</div>
+    <h2>Como o Bot.io Funciona</h2>
+    <p class="section-subtitle">Três passos para ter seu agente de I.A atendendo clientes no WhatsApp.</p>
+
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">01</div>
+        <div class="step-icon-wrap">
+          <img src="https://framerusercontent.com/images/r55DSV1h7XRgBGkmR01KU8c08.webp" alt="Treine" width="200" loading="lazy">
+        </div>
+        <h3>Treine seu Agente</h3>
+        <p>Crie um agente e treine com instruções, documentos, perguntas frequentes e mais. 100% personalizado para o seu negócio.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">02</div>
+        <div class="step-icon-wrap">
+          <img src="https://framerusercontent.com/images/bSFdMZQ358o9FRAnTHuEIbU.webp" alt="Conecte" width="200" loading="lazy">
+        </div>
+        <h3>Conecte o WhatsApp</h3>
+        <p>Escaneie o QR Code ou use pairing code para conectar seu número. Sem instalar nada no celular, 100% na nuvem.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">03</div>
+        <div class="step-icon-wrap">
+          <img src="https://framerusercontent.com/images/F7PMompTjqsQkXtC9N0m7JCgigE.webp" alt="Resultados" width="200" loading="lazy">
+        </div>
+        <h3>Veja os Resultados</h3>
+        <p>Seu agente começa a atender. Monitore conversas, intervenha quando quiser e escale sem limite.</p>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+**CSS dos Steps:**
+- `.steps-grid`: `display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px`
+- `.step-card`: `text-align: center; padding: 40px 24px`
+- `.step-number`: `font-size: 0.75rem; font-weight: 700; color: var(--green-primary); letter-spacing: 0.15em; margin-bottom: 24px`
+- `.step-icon-wrap`: `margin: 0 auto 24px; width: 120px; height: 120px; border-radius: 24px; background: var(--bg-secondary); border: 1px solid var(--border-card); display: flex; align-items: center; justify-content: center; overflow: hidden`
+
+---
+
+### SEÇÃO 6 — BENEFÍCIOS (TABS)
+
+```html
+<section class="benefits" id="beneficios">
+  <div class="container">
+    <div class="section-tag">Benefícios</div>
+    <h2>Desbloqueie o Potencial Total</h2>
+    <p class="section-subtitle">Viva a experiência completa que um agente de I.A super treinado pode oferecer para sua equipe e clientes.</p>
+
+    <div class="benefits-tabs">
+      <button class="tab-btn active" data-tab="construa">🔨 Construa</button>
+      <button class="tab-btn" data-tab="resolva">✅ Resolva</button>
+      <button class="tab-btn" data-tab="otimize">⚡ Otimize</button>
+      <button class="tab-btn" data-tab="transfira">🤝 Transfira</button>
+    </div>
+
+    <div class="benefits-content">
+      <div class="tab-panel active" id="tab-construa">
+        <div class="benefit-layout">
+          <div class="benefit-text">
+            <h3>Faça Uma Vez e Observe</h3>
+            <p>Crie e treine um agente de I.A com o conhecimento do seu produto, defina as regras de comportamento e conecte ao seu WhatsApp. Depois, é só acompanhar os resultados.</p>
+            <ul class="benefit-list">
+              <li>✓ Editor visual de agentes</li>
+              <li>✓ Upload de PDFs e documentos</li>
+              <li>✓ Base de conhecimento ilimitada</li>
+              <li>✓ Personalidade e tom configuráveis</li>
+            </ul>
+          </div>
+          <div class="benefit-visual">
+            <div class="visual-card">
+              <div class="agent-preview">
+                <div class="agent-avatar">🤖</div>
+                <div class="agent-details">
+                  <div class="agent-name">Agente Vendas Pro</div>
+                  <div class="agent-model">GPT-4o · Ativo</div>
+                </div>
+                <div class="agent-status-dot"></div>
+              </div>
+              <div class="training-items">
+                <div class="training-item">📄 Manual do Produto.pdf</div>
+                <div class="training-item">🌐 www.meusite.com.br</div>
+                <div class="training-item">❓ Perguntas Frequentes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Outros tabs similares... -->
+    </div>
+  </div>
+</section>
+```
+
+**CSS das Tabs:**
+- `.benefits-tabs`: `display: flex; gap: 8px; margin-bottom: 40px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0`
+- `.tab-btn`: sem borda, fundo transparente, `padding: 12px 20px; color: var(--text-secondary); border-bottom: 2px solid transparent; transition: all 0.2s; cursor: pointer`
+- `.tab-btn.active`: `color: var(--green-primary); border-bottom-color: var(--green-primary)`
+- `.tab-panel`: `display: none`; `.tab-panel.active`: `display: block`
+
+---
+
+### SEÇÃO 7 — PRICING
+
+```html
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="section-tag">Planos simples, sem surpresas</div>
+    <h2>Comece Pequeno, Escale Muito</h2>
+    <p class="section-subtitle">Com o Bot.io, você já pode começar a vender de forma automatizada com I.A no seu WhatsApp, e se precisar, escale a qualquer momento.</p>
+
+    <div class="pricing-toggle">
+      <span class="toggle-label">Mensal</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="billingToggle">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label">Trimestral <span class="badge-discount">20% OFF</span></span>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- Start -->
+      <div class="pricing-card">
+        <div class="plan-name">Start</div>
+        <div class="plan-tagline">Ideal para demandas menores</div>
+        <div class="plan-price">
+          <span class="price-currency">R$</span>
+          <span class="price-amount monthly-price">97</span>
+          <span class="price-amount quarterly-price" style="display:none">77</span>
+          <span class="price-period">/mês</span>
+        </div>
+        <a href="/dashboard" class="btn-outline-full">Começar Agora</a>
+        <ul class="plan-features">
+          <li>✓ 1.000 mensagens / mês</li>
+          <li>✓ 1 dispositivo / número</li>
+          <li>✓ Bot completo com I.A</li>
+          <li>✓ Suporte padrão</li>
+        </ul>
+      </div>
+      <!-- Pro -->
+      <div class="pricing-card pricing-card--featured">
+        <div class="plan-badge">Mais Popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-tagline">Ideal para demandas maiores</div>
+        <div class="plan-price">
+          <span class="price-currency">R$</span>
+          <span class="price-amount monthly-price">267</span>
+          <span class="price-amount quarterly-price" style="display:none">213</span>
+          <span class="price-period">/mês</span>
+        </div>
+        <a href="/dashboard" class="btn-primary-full">Começar Agora</a>
+        <ul class="plan-features">
+          <li>✓ Mensagens ilimitadas</li>
+          <li>✓ 1 dispositivo / número</li>
+          <li>✓ Bot escuta áudios</li>
+          <li>✓ Suporte padrão</li>
+          <li>✓ Transferência para humano</li>
+        </ul>
+      </div>
+      <!-- Ultra -->
+      <div class="pricing-card">
+        <div class="plan-name">Ultra</div>
+        <div class="plan-tagline">Para demandas muito grandes</div>
+        <div class="plan-price">
+          <span class="price-currency">R$</span>
+          <span class="price-amount monthly-price">697</span>
+          <span class="price-amount quarterly-price" style="display:none">557</span>
+          <span class="price-period">/mês</span>
+        </div>
+        <a href="/dashboard" class="btn-outline-full">Começar Agora</a>
+        <ul class="plan-features">
+          <li>✓ Mensagens ilimitadas</li>
+          <li>✓ 2 dispositivos / números</li>
+          <li>✓ Escuta e envia áudios</li>
+          <li>✓ Suporte Premium</li>
+          <li>✓ Agentes ilimitados</li>
+          <li>✓ Broadcasts em massa</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+**CSS do Pricing:**
+- `.pricing-grid`: `display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: center`
+- `.pricing-card`: `background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 20px; padding: 36px 28px`
+- `.pricing-card--featured`: `border-color: var(--green-primary); background: linear-gradient(135deg, var(--bg-card), rgba(37,211,102,0.05)); transform: scale(1.05); box-shadow: 0 0 40px rgba(37,211,102,0.15)`
+- `.price-amount`: `font-size: 3rem; font-weight: 800; color: var(--text-primary)`
+- `.btn-primary-full`: `display: block; width: 100%; text-align: center; background: var(--green-primary); color: #000; border-radius: 10px; padding: 14px; font-weight: 700; margin: 20px 0; transition: background 0.2s`
+- `.btn-outline-full`: mesmo mas `background: transparent; border: 1px solid var(--border-card); color: var(--text-primary)`
+- `.toggle-switch`: toggle CSS puro com animação smooth
+- **JavaScript do toggle:** ao clicar, alterna `display` entre `.monthly-price` e `.quarterly-price`
+
+---
+
+### SEÇÃO 8 — FAQ
+
+```html
+<section class="faq" id="faq">
+  <div class="container faq-container">
+    <div class="section-tag">Sem deixar dúvidas</div>
+    <h2>Perguntas Frequentes</h2>
+
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>Como é feita a segurança dos dados?</summary>
+        <p>Seus dados e chaves de API jamais serão utilizados para treinar novos modelos. Seguimos rigorosamente a LGPD. Todo o tráfego é criptografado com TLS/HTTPS.</p>
+      </details>
+      <details class="faq-item">
+        <summary>É possível o robô executar ações?</summary>
+        <p>Sim! Via webhooks, o Bot.io pode acionar sistemas externos, atualizar CRMs, enviar notificações e muito mais sempre que uma condição for atingida na conversa.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Com quais documentos posso treinar meu agente?</summary>
+        <p>PDFs, textos, URLs de sites, perguntas e respostas manuais, e em breve integração com Notion e Google Docs.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Meu WhatsApp pode ser banido?</summary>
+        <p>O Bot.io usa comportamento humanizado com delays variáveis para simular digitação real. Ainda assim, recomendamos usar números dedicados ao bot, não seu número pessoal.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Posso testar antes de pagar?</summary>
+        <p>Sim! Oferecemos acesso gratuito para você testar a plataforma antes de assinar qualquer plano. Sem cartão de crédito necessário.</p>
+      </details>
+    </div>
+  </div>
+</section>
+```
+
+**CSS do FAQ:**
+- `.faq-list`: `max-width: 720px; margin: 0 auto`
+- `.faq-item`: `border-bottom: 1px solid var(--border-subtle); padding: 20px 0`
+- `summary`: `cursor: pointer; font-weight: 600; font-size: 1.05rem; list-style: none; display: flex; justify-content: space-between; align-items: center`
+- `summary::after`: `content: '+'; font-size: 1.5rem; color: var(--green-primary); transition: transform 0.2s`
+- `details[open] summary::after`: `transform: rotate(45deg)`
+- `details p`: `margin-top: 12px; color: var(--text-secondary); line-height: 1.7`
+
+---
+
+### SEÇÃO 9 — CTA FINAL
+
+```html
+<section class="cta-final">
+  <div class="container">
+    <div class="cta-card">
+      <div class="cta-glow"></div>
+      <div class="section-tag">Para Negócios que Querem Crescer</div>
+      <h2>Transforme seu WhatsApp com I.A!</h2>
+      <p>Faça parte dos negócios que estão transformando o atendimento no WhatsApp com inteligência artificial e inicie agora mesmo!</p>
+      <a href="/dashboard" class="btn-primary btn-large">Começar Grátis Agora</a>
+      <p class="cta-note">Sem cartão de crédito · Cancele quando quiser</p>
+    </div>
+  </div>
+</section>
+```
+
+**CSS do CTA Final:**
+- `.cta-card`: `position: relative; background: linear-gradient(135deg, rgba(37,211,102,0.1), rgba(124,58,237,0.1)); border: 1px solid rgba(37,211,102,0.25); border-radius: 24px; padding: 80px 48px; text-align: center; overflow: hidden`
+- `.cta-glow`: `position: absolute; inset: -50%; background: radial-gradient(circle, rgba(37,211,102,0.08), transparent 70%); pointer-events: none`
+
+---
+
+### SEÇÃO 10 — FOOTER
+
+```html
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <img src="/uploads/logo-botio.png" alt="Bot.io" height="32">
+        <p>Atendimento inteligente no WhatsApp com I.A. Simples, eficiente e poderoso.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Produto</h4>
+          <a href="#features">Funcionalidades</a>
+          <a href="#pricing">Preços</a>
+          <a href="/dashboard">Acessar</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a href="/termos">Termos de Uso</a>
+          <a href="/privacidade">Privacidade</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Bot.io © 2026 · Todos os Direitos Reservados.</p>
+    </div>
+  </div>
+</footer>
+```
+
+---
+
+## JAVASCRIPT NECESSÁRIO (no final do `index.html` ou em `public/script.js`)
+
+```javascript
+// 1. Tabs dos benefícios
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab)?.classList.add('active');
+  });
+});
+
+// 2. Toggle de preço (mensal/trimestral)
+document.getElementById('billingToggle')?.addEventListener('change', function() {
+  const monthly = document.querySelectorAll('.monthly-price');
+  const quarterly = document.querySelectorAll('.quarterly-price');
+  if (this.checked) {
+    monthly.forEach(el => el.style.display = 'none');
+    quarterly.forEach(el => el.style.display = 'inline');
+  } else {
+    monthly.forEach(el => el.style.display = 'inline');
+    quarterly.forEach(el => el.style.display = 'none');
+  }
+});
+
+// 3. Mobile menu toggle
+document.getElementById('mobileToggle')?.addEventListener('click', () => {
+  document.querySelector('.nav-links').classList.toggle('open');
+});
+
+// 4. Navbar scroll shadow
+window.addEventListener('scroll', () => {
+  const nav = document.querySelector('.navbar');
+  nav.classList.toggle('scrolled', window.scrollY > 20);
+});
+
+// 5. Smooth scroll para âncoras
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+  });
+});
+```
+
+---
+
+## RESPONSIVIDADE OBRIGATÓRIA
+
+```css
+/* Tablet */
+@media (max-width: 1024px) {
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .feature-card--highlight { grid-column: span 2; }
+  .steps-grid { grid-template-columns: repeat(2, 1fr); }
+  .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
+  .pricing-card--featured { transform: scale(1); }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .features-grid { grid-template-columns: 1fr; }
+  .feature-card--highlight { grid-column: span 1; }
+  .steps-grid { grid-template-columns: 1fr; }
+  .nav-links { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-secondary); padding: 20px; border-bottom: 1px solid var(--border-subtle); }
+  .nav-links.open { display: flex; }
+  .nav-mobile-toggle { display: block; }
+  .hero-actions { flex-direction: column; align-items: center; }
+  h1 { font-size: 2.2rem; }
+  .cta-card { padding: 48px 24px; }
+}
+```
+
+---
+
+## CHECKLIST FINAL PARA O REPLIT AI
+
+Após criar os arquivos, verifique:
+- [ ] A logo aparece na navbar E no footer (caminho: `/uploads/logo-botio.png`)
+- [ ] Todas as 10 seções estão presentes na ordem correta
+- [ ] O toggle mensal/trimestral funciona
+- [ ] As tabs de benefícios funcionam
+- [ ] O marquee anima continuamente sem pausar
+- [ ] A navbar fica sticky com blur ao rolar
+- [ ] O design é 100% dark (fundo preto/escuro, sem backgrounds brancos)
+- [ ] Os CTAs têm o verde `#25d366`
+- [ ] A página é responsiva no mobile
+- [ ] Não há links quebrados
+- [ ] `node --check server.js` passa sem erros (backend não foi alterado)
+
+---
+
+## OBSERVAÇÃO IMPORTANTE
+
+**NÃO altere:** `server.js`, `lib/`, `routes/`, `package.json`, qualquer arquivo `.js` de backend.
+**ALTERE APENAS:** `public/index.html`, `public/styles.css`, e opcionalmente `public/script.js`.

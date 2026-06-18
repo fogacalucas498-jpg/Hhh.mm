@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bot.io — Atendimento inteligente no WhatsApp com I.A</title>
+  <meta name="description" content="Crie agentes de I.A treinados com o conhecimento do seu negócio e atenda clientes no WhatsApp de forma automática, natural e eficiente." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar" id="navbar">
+  <div class="nav-container">
+    <a href="/" class="nav-logo">
+      <svg viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:32px;display:block">
+        <rect width="36" height="36" x="2" y="2" rx="10" fill="url(#lg)"/>
+        <circle cx="14" cy="15" r="2.5" fill="white"/>
+        <circle cx="26" cy="15" r="2.5" fill="white"/>
+        <rect x="11" y="22" width="18" height="3" rx="1.5" fill="white"/>
+        <rect x="8" y="10" width="24" height="18" rx="5" stroke="white" stroke-width="2" fill="none"/>
+        <rect x="17" y="6" width="6" height="4" rx="1" fill="white"/>
+        <rect x="4" y="18" width="3" height="6" rx="1.5" fill="white"/>
+        <rect x="33" y="18" width="3" height="6" rx="1.5" fill="white"/>
+        <text x="46" y="26" font-family="Inter,-apple-system,sans-serif" font-size="20" font-weight="800" fill="white" letter-spacing="-0.5">Bot</text>
+        <text x="80" y="26" font-family="Inter,-apple-system,sans-serif" font-size="20" font-weight="800" fill="#25d366" letter-spacing="-0.5">.io</text>
+        <defs>
+          <linearGradient id="lg" x1="2" y1="2" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#25d366"/><stop offset="1" stop-color="#1da851"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#features">Funcionalidades</a></li>
+      <li><a href="#como-funciona">Como Funciona</a></li>
+      <li><a href="#pricing">Preços</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="/dashboard" class="btn-ghost">Acessar</a>
+      <a href="/dashboard" class="btn-primary">Começar Grátis</a>
+    </div>
+    <button class="nav-mobile-toggle" id="mobileToggle">☰</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <div class="hero-container">
+    <div class="hero-badge">
+      <span class="badge-dot"></span>
+      Plataforma de Atendimento com I.A
+    </div>
+    <h1 class="hero-title">
+      Transforme seu WhatsApp<br>
+      com <span class="text-gradient">Inteligência Artificial</span>
+    </h1>
+    <p class="hero-subtitle">
+      Com o <strong>Bot.io</strong>, crie agentes de I.A treinados com o conhecimento do seu negócio
+      e atenda clientes no WhatsApp de forma automática, natural e eficiente. Sem código, sem complicação.
+    </p>
+    <div class="hero-actions">
+      <a href="/dashboard" class="btn-primary btn-large">
+        Cadastre-se Grátis
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <span class="hero-note">Sem cartão de crédito · Comece em 2 minutos</span>
+    </div>
+    <div class="hero-mockup">
+      <div class="mockup-topbar">
+        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+        <span class="mockup-url">app.bot.io/dashboard</span>
+      </div>
+      <div class="mockup-screen">
+        <div class="mockup-sidebar">
+          <div class="mockup-nav-item active">🤖 Agentes</div>
+          <div class="mockup-nav-item">📱 Dispositivos</div>
+          <div class="mockup-nav-item">💬 Conversas</div>
+          <div class="mockup-nav-item">📊 Relatórios</div>
+        </div>
+        <div class="mockup-content">
+          <div class="mockup-card">
+            <div class="mockup-card-header">
+              <div class="mockup-avatar green"></div>
+              <div><div class="mockup-name">Agente Vendas</div><div class="mockup-status">● Online</div></div>
+            </div>
+            <div class="mockup-stat"><span>Mensagens hoje</span><strong>1.247</strong></div>
+            <div class="mockup-stat"><span>Taxa de resposta</span><strong>98.2%</strong></div>
+          </div>
+          <div class="mockup-chat">
+            <div class="chat-msg in">Olá! Queria saber mais sobre o produto 😊</div>
+            <div class="chat-msg out">Claro! Fico feliz em ajudar. Qual é sua principal dúvida?</div>
+            <div class="chat-msg in">Qual o prazo de entrega?</div>
+            <div class="chat-typing"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<section class="marquee-section">
+  <div class="marquee-track">
+    <div class="marquee-inner">
+      <span>🤖 Múltiplos Agentes</span><span>⚡ IA Powered</span><span>☁️ 100% Cloud</span>
+      <span>📊 Relatórios Precisos</span><span>🔒 Segurança LGPD</span><span>📁 Base de Conhecimento</span>
+      <span>🎙️ Transcreve Áudios</span><span>📱 Múltiplos Números</span><span>⏰ Economize Tempo</span>
+      <span>👥 Controle os Leads</span><span>🔧 Fácil Configuração</span><span>💳 Sem Fidelidade</span>
+      <span>🤖 Múltiplos Agentes</span><span>⚡ IA Powered</span><span>☁️ 100% Cloud</span>
+      <span>📊 Relatórios Precisos</span><span>🔒 Segurança LGPD</span><span>📁 Base de Conhecimento</span>
+      <span>🎙️ Transcreve Áudios</span><span>📱 Múltiplos Números</span><span>⏰ Economize Tempo</span>
+      <span>👥 Controle os Leads</span><span>🔧 Fácil Configuração</span><span>💳 Sem Fidelidade</span>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="container">
+    <div class="section-tag">Perfeita Para Qualquer Negócio</div>
+    <h2>A Plataforma completa<br>para agentes de I.A</h2>
+    <p class="section-subtitle">O Bot.io é uma plataforma focada na construção de agentes de I.A que resolvem as dores do seu cliente e aumentam seus lucros.</p>
+    <div class="features-grid">
+      <div class="feature-card feature-card--highlight">
+        <div class="feature-icon">🚀</div>
+        <h3>Impulsione Satisfação e Fidelidade</h3>
+        <p>Com o nosso construtor de agentes, sua única preocupação é fornecer a base de conhecimento e conectar seu WhatsApp. A I.A faz o resto.</p>
+        <div class="feature-preview"><div class="preview-line"></div><div class="preview-line short"></div><div class="preview-line medium"></div></div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎛️</div>
+        <h3>Controle que Reflete Excelência</h3>
+        <p>Administre o conteúdo ensinado ao seu agente com o nosso editor poderoso e extremamente simples de usar.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📚</div>
+        <h3>Embarque Conhecimento de Forma Simples</h3>
+        <p>PDFs, sites, instruções ou perguntas frequentes — diversas formas de alimentar o conhecimento da sua empresa para o agente.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎙️</div>
+        <h3>Entende e Responde em Áudio</h3>
+        <p>Seus clientes mandam áudio? O Bot.io transcreve, entende e pode responder também em áudio com voz natural.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Dashboards e Relatórios em Tempo Real</h3>
+        <p>Acompanhe conversas, leads capturados e desempenho dos agentes com métricas claras e acionáveis.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔁</div>
+        <h3>Transferência para Humano</h3>
+        <p>Quando o cliente precisar de um atendente humano, o agente transfere automaticamente com todo o contexto da conversa.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-it-works" id="como-funciona">
+  <div class="container">
+    <div class="section-tag">Simples do início ao fim</div>
+    <h2>Como o Bot.io Funciona</h2>
+    <p class="section-subtitle">Três passos para ter seu agente de I.A atendendo clientes no WhatsApp.</p>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">01</div>
+        <div class="step-icon-wrap">🤖</div>
+        <h3>Treine seu Agente</h3>
+        <p>Crie um agente e treine com instruções, documentos, perguntas frequentes e mais. 100% personalizado para o seu negócio.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">02</div>
+        <div class="step-icon-wrap">📱</div>
+        <h3>Conecte o WhatsApp</h3>
+        <p>Escaneie o QR Code para conectar seu número. Sem instalar nada no celular, 100% na nuvem.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">03</div>
+        <div class="step-icon-wrap">📈</div>
+        <h3>Veja os Resultados</h3>
+        <p>Seu agente começa a atender. Monitore conversas, intervenha quando quiser e escale sem limite.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFITS -->
+<section class="benefits" id="beneficios">
+  <div class="container">
+    <div class="section-tag">Benefícios</div>
+    <h2>Desbloqueie o Potencial Total</h2>
+    <p class="section-subtitle">Viva a experiência completa que um agente de I.A super treinado pode oferecer para sua equipe e clientes.</p>
+    <div class="benefits-tabs">
+      <button class="tab-btn active" data-tab="construa">🔨 Construa</button>
+      <button class="tab-btn" data-tab="resolva">✅ Resolva</button>
+      <button class="tab-btn" data-tab="otimize">⚡ Otimize</button>
+      <button class="tab-btn" data-tab="transfira">🤝 Transfira</button>
+    </div>
+    <div class="benefits-content">
+      <div class="tab-panel active" id="tab-construa">
+        <div class="benefit-layout">
+          <div class="benefit-text">
+            <h3>Faça Uma Vez e Observe</h3>
+            <p>Crie e treine um agente de I.A com o conhecimento do seu produto, defina as regras de comportamento e conecte ao seu WhatsApp.</p>
+            <ul class="benefit-list">
+              <li>✓ Editor visual de agentes</li>
+              <li>✓ Upload de PDFs e documentos</li>
+              <li>✓ Base de conhecimento ilimitada</li>
+              <li>✓ Personalidade e tom configuráveis</li>
+            </ul>
+          </div>
+          <div class="benefit-visual">
+            <div class="visual-card">
+              <div class="agent-preview">
+                <div class="agent-avatar">🤖</div>
+                <div><div class="agent-name">Agente Vendas Pro</div><div class="agent-model">GPT-4o · Ativo</div></div>
+                <div class="agent-status-dot"></div>
+              </div>
+              <div class="training-items">
+                <div class="training-item">📄 Manual do Produto.pdf</div>
+                <div class="training-item">🌐 www.meusite.com.br</div>
+                <div class="training-item">❓ Perguntas Frequentes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-resolva">
+        <div class="benefit-layout">
+          <div class="benefit-text">
+            <h3>Resolva Dúvidas em Segundos</h3>
+            <p>Seu agente responde perguntas frequentes, preços, prazos e detalhes automaticamente — 24h por dia, 7 dias por semana.</p>
+            <ul class="benefit-list">
+              <li>✓ Respostas instantâneas 24/7</li>
+              <li>✓ Entendimento de contexto avançado</li>
+              <li>✓ Suporte a múltiplos idiomas</li>
+              <li>✓ Histórico de conversas completo</li>
+            </ul>
+          </div>
+          <div class="benefit-visual">
+            <div class="visual-card">
+              <div class="mockup-chat" style="gap:10px">
+                <div class="chat-msg in">Qual o prazo de entrega?</div>
+                <div class="chat-msg out">Entregamos em até 5 dias úteis para todo o Brasil! 🚚</div>
+                <div class="chat-msg in">Tem parcelamento?</div>
+                <div class="chat-msg out">Sim! Parcelamos em até 12x sem juros no cartão 💳</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-otimize">
+        <div class="benefit-layout">
+          <div class="benefit-text">
+            <h3>Métricas que Geram Resultado</h3>
+            <p>Acompanhe em tempo real o desempenho dos seus agentes, volume de atendimentos e leads capturados.</p>
+            <ul class="benefit-list">
+              <li>✓ Dashboard em tempo real</li>
+              <li>✓ Taxa de resolução automática</li>
+              <li>✓ Leads capturados por agente</li>
+              <li>✓ Relatórios exportáveis em CSV</li>
+            </ul>
+          </div>
+          <div class="benefit-visual">
+            <div class="visual-card">
+              <div class="mockup-stat" style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07)"><span>Mensagens Hoje</span><strong>1.247</strong></div>
+              <div class="mockup-stat" style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.07)"><span>Taxa de Resolução</span><strong>98.2%</strong></div>
+              <div class="mockup-stat" style="padding:12px 0"><span>Leads Capturados</span><strong>89</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-transfira">
+        <div class="benefit-layout">
+          <div class="benefit-text">
+            <h3>Humano Quando Precisar</h3>
+            <p>Quando o cliente precisar de atendimento especializado, o agente transfere automaticamente com todo o contexto da conversa.</p>
+            <ul class="benefit-list">
+              <li>✓ Transferência com contexto completo</li>
+              <li>✓ Notificação instantânea ao atendente</li>
+              <li>✓ Retomada automática pelo bot</li>
+              <li>✓ Histórico unificado da conversa</li>
+            </ul>
+          </div>
+          <div class="benefit-visual">
+            <div class="visual-card">
+              <div class="chat-msg in" style="max-width:100%;margin-bottom:8px">Preciso falar com um atendente</div>
+              <div class="chat-msg out" style="max-width:100%;margin-bottom:8px">Claro! Transferindo você agora... 🤝</div>
+              <div style="background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.25);border-radius:8px;padding:10px 14px;font-size:0.82rem;color:#25d366">
+                ✓ Atendente Ana conectada — contexto enviado automaticamente
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="section-tag">Planos simples, sem surpresas</div>
+    <h2>Comece Pequeno, Escale Muito</h2>
+    <p class="section-subtitle">Com o Bot.io, você já pode começar a vender de forma automatizada com I.A no seu WhatsApp.</p>
+    <div class="pricing-toggle">
+      <span class="toggle-label">Mensal</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="billingToggle">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label">Trimestral <span class="badge-discount">20% OFF</span></span>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="plan-name">Start</div>
+        <div class="plan-tagline">Ideal para demandas menores</div>
+        <div class="plan-price">
+          <span class="price-currency">R$</span>
+          <span class="price-amount monthly-price">97</span>
+          <span class="price-amount quarterly-price" style="display:none">77</span>
+          <span class="price-period">/mês</span>
+        </div>
+        <a href="/dashboard" class="btn-outline-full">Começar Agora</a>
+        <ul class="plan-features">
+          <li>✓ 1.000 mensagens / mês</li>
+          <li>✓ 1 dispositivo / número</li>
+          <li>✓ Bot completo com I.A</li>
+          <li>✓ Suporte padrão</li>
+        </ul>
+      </div>
+      <div class="pricing-card pricing-card--featured">
+        <div class="plan-badge">Mais Popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-tagline">Ideal para demandas maiores</div>
+        <div class="plan-price">
+          <span class="price-currency">R$</span>
+          <span class="price-amount monthly-price">267</span>
+          <span class="price-amount quarterly-price" style="display:none">213</span>
+          <span class="price-period">/mês</span>
+        </div>
+        <a href="/dashboard" class="btn-primary-full">Começar Agora</a>
+        <ul class="plan-features">
+          <li>✓ Mensagens ilimitadas</li>
+          <li>✓ 1 dispositivo / número</li>
+          <li>✓ Bot escuta áudios</li>
+          <li>✓ Suporte padrão</li>
+          <li>✓ Transferência para humano</li>
+        </ul>
+      </div>
+      <div class="pricing-card">
+        <div class="plan-name">Ultra</div>
+        <div class="plan-tagline">Para demandas muito grandes</div>
+        <div class="plan-price">
+          <span class="price-currency">R$</span>
+          <span class="price-amount monthly-price">697</span>
+          <span class="price-amount quarterly-price" style="display:none">557</span>
+          <span class="price-period">/mês</span>
+        </div>
+        <a href="/dashboard" class="btn-outline-full">Começar Agora</a>
+        <ul class="plan-features">
+          <li>✓ Mensagens ilimitadas</li>
+          <li>✓ 2 dispositivos / números</li>
+          <li>✓ Escuta e envia áudios</li>
+          <li>✓ Suporte Premium</li>
+          <li>✓ Agentes ilimitados</li>
+          <li>✓ Broadcasts em massa</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="faq-container">
+    <div style="text-align:center">
+      <div class="section-tag">Sem deixar dúvidas</div>
+      <h2>Perguntas Frequentes</h2>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>Como é feita a segurança dos dados?</summary>
+        <p>Seus dados e chaves de API jamais serão utilizados para treinar novos modelos. Seguimos rigorosamente a LGPD. Todo o tráfego é criptografado com TLS/HTTPS.</p>
+      </details>
+      <details class="faq-item">
+        <summary>É possível o robô executar ações?</summary>
+        <p>Sim! Via webhooks, o Bot.io pode acionar sistemas externos, atualizar CRMs, enviar notificações e muito mais sempre que uma condição for atingida na conversa.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Com quais documentos posso treinar meu agente?</summary>
+        <p>PDFs, textos, URLs de sites, perguntas e respostas manuais, e em breve integração com Notion e Google Docs.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Meu WhatsApp pode ser banido?</summary>
+        <p>O Bot.io usa comportamento humanizado com delays variáveis para simular digitação real. Ainda assim, recomendamos usar números dedicados ao bot, não seu número pessoal.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Posso testar antes de pagar?</summary>
+        <p>Sim! Oferecemos acesso gratuito para você testar a plataforma antes de assinar qualquer plano. Sem cartão de crédito necessário.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-final">
+  <div class="container">
+    <div class="cta-card">
+      <div class="cta-glow"></div>
+      <div class="section-tag">Para Negócios que Querem Crescer</div>
+      <h2>Transforme seu WhatsApp com I.A!</h2>
+      <p>Faça parte dos negócios que estão transformando o atendimento no WhatsApp com inteligência artificial e inicie agora mesmo!</p>
+      <a href="/dashboard" class="btn-primary btn-large">Começar Grátis Agora</a>
+      <p class="cta-note">Sem cartão de crédito · Cancele quando quiser</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <svg viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:28px;display:block">
+          <rect width="36" height="36" x="2" y="2" rx="10" fill="url(#lg2)"/>
+          <circle cx="14" cy="15" r="2.5" fill="white"/><circle cx="26" cy="15" r="2.5" fill="white"/>
+          <rect x="11" y="22" width="18" height="3" rx="1.5" fill="white"/>
+          <rect x="8" y="10" width="24" height="18" rx="5" stroke="white" stroke-width="2" fill="none"/>
+          <rect x="17" y="6" width="6" height="4" rx="1" fill="white"/>
+          <rect x="4" y="18" width="3" height="6" rx="1.5" fill="white"/><rect x="33" y="18" width="3" height="6" rx="1.5" fill="white"/>
+          <text x="46" y="26" font-family="Inter,-apple-system,sans-serif" font-size="20" font-weight="800" fill="white" letter-spacing="-0.5">Bot</text>
+          <text x="80" y="26" font-family="Inter,-apple-system,sans-serif" font-size="20" font-weight="800" fill="#25d366" letter-spacing="-0.5">.io</text>
+          <defs><linearGradient id="lg2" x1="2" y1="2" x2="38" y2="38" gradientUnits="userSpaceOnUse"><stop stop-color="#25d366"/><stop offset="1" stop-color="#1da851"/></linearGradient></defs>
+        </svg>
+        <p style="margin-top:12px">Atendimento inteligente no WhatsApp com I.A. Simples, eficiente e poderoso.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Produto</h4>
+          <a href="#features">Funcionalidades</a>
+          <a href="#pricing">Preços</a>
+          <a href="/dashboard">Acessar</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a href="#">Termos de Uso</a>
+          <a href="#">Privacidade</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Bot.io © 2026 · Todos os Direitos Reservados.</p>
+    </div>
+  </div>
+</footer>
+
+<script src="/script.js"></script>
+</body>
+</html>

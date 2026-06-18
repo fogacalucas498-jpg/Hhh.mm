@@ -22,6 +22,7 @@ if (!sessionSecret || sessionSecret.length < 32) {
   process.exit(1);
 }
 
+const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const cors = require('cors');
@@ -79,7 +80,17 @@ app.use('/auth', authRouter);
 app.use(`${BASE}/api`, apiRouter);
 app.use('/api', apiRouter);
 
-// 404 handler
+// Servir landing page estática
+app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html' }));
+
+// Catch-all: retorna index.html para rotas não-API
+app.get('*', (req, res) => {
+  const isApi = req.path.startsWith('/bot/') || req.path.startsWith('/auth') || req.path.startsWith('/api');
+  if (isApi) return res.status(404).json({ error: 'Rota não encontrada.' });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 404 handler para API
 app.use((_req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
 
 // Global error handler

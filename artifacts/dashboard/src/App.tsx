@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import LoginPage from "@/pages/LoginPage";
+import LandingPage from "@/pages/LandingPage";
 import DashboardPage from "@/pages/DashboardPage";
 import AgentsPage from "@/pages/AgentsPage";
 import DevicesPage from "@/pages/DevicesPage";
@@ -37,7 +38,8 @@ function AppRoutes() {
     return (
       <Switch>
         <Route path="/login" component={LoginPage} />
-        <Route><Redirect to="/login" /></Route>
+        <Route path="/" component={LandingPage} />
+        <Route><LandingPage /></Route>
       </Switch>
     );
   }
