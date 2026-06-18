@@ -15,6 +15,7 @@ interface NotificationsCtx {
   toasts: AppNotification[];
   unreadCount: number;
   markAllRead: () => void;
+  clearAll: () => void;
   dismiss: (id: string) => void;
   dismissToast: (id: string) => void;
 }
@@ -50,6 +51,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const markAllRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setNotifications([]);
   }, []);
 
   const dismiss = useCallback((id: string) => {
@@ -131,7 +136,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <NotificationsContext.Provider value={{ notifications, toasts, unreadCount, markAllRead, dismiss, dismissToast }}>
+    <NotificationsContext.Provider value={{ notifications, toasts, unreadCount, markAllRead, clearAll, dismiss, dismissToast }}>
       {children}
     </NotificationsContext.Provider>
   );

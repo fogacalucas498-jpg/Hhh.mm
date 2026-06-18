@@ -347,6 +347,11 @@ async function startDevice(userId, deviceId) {
 
       if (shouldReconnect) {
         await new Promise(r => setTimeout(r, 5000));
+        // Don't reconnect if a pairing code session took over this slot
+        const current = sockets.get(k);
+        if (current && current.isPairing) return;
+        // Don't reconnect if already connected by another path
+        if (current && current.status === 'connected') return;
         startDevice(userId, deviceId).catch(e =>
           appLogger.error({ event: 'reconnect_failed', deviceId, err: e.message })
         );
@@ -539,8 +544,28 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
     throw new Error('Número inválido. Use o formato internacional sem + (ex: 5511999999999).');
   }
 
-  // Wait for socket to reach the connecting state before requesting pairing code
-  await new Promise(r => setTimeout(r, 5000));
+  // Wait for WebSocket to establish connection with WhatsApp servers
+  // Uses an event-driven approach with a 15s timeout fallback
+  await new Promise((resolve) => {
+    let resolved = false;
+    const done = () => { if (!resolved) { resolved = true; resolve(); } };
+
+    // Resolve as soon as the connection event fires (connecting state)
+    const unsub = sock.ev.on('connection.update', ({ connection }) => {
+      if (connection === 'connecting' || connection === 'open') {
+        done();
+      }
+    });
+
+    // Fallback: resolve after 8 seconds regardless
+    setTimeout(() => {
+      try { if (unsub && typeof unsub === 'function') unsub(); } catch (_) {}
+      done();
+    }, 8000);
+  });
+
+  // Extra buffer to let the WebSocket fully handshake
+  await new Promise(r => setTimeout(r, 1500));
 
   try {
     const code = await sock.requestPairingCode(clean);
@@ -552,7 +577,8 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
     fs.rmSync(sessionDir, { recursive: true, force: true });
     await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId]);
     emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
-    throw new Error('Não foi possível gerar o código de pareamento. Verifique o número e tente novamente.');
+    appLogger.warn({ event: 'pairing_code_failed', deviceId, err: err.message });
+    throw new Error('Não foi possível gerar o código de pareamento. Tente novamente em alguns segundos.');
   }
 }
 

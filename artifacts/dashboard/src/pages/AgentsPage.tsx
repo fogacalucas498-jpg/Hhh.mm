@@ -292,10 +292,10 @@ function AgentModal({ agent, onClose }: { agent?: Agent; onClose: () => void }) 
   const disableBh = () => setField('business_hours', null);
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-border">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4">
+      <div className="bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[90vh] flex flex-col border border-border">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card rounded-t-2xl z-10">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card rounded-t-2xl z-10">
           <div>
             <h2 className="font-semibold text-foreground">{agent ? 'Editar agente' : 'Novo agente'}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{agent ? agent.name : 'Configure seu novo agente de IA'}</p>
@@ -304,26 +304,26 @@ function AgentModal({ agent, onClose }: { agent?: Agent; onClose: () => void }) 
         </div>
 
         {/* Name always visible */}
-        <div className="px-6 pt-4 pb-0">
+        <div className="px-4 sm:px-6 pt-4 pb-0">
           <label className="text-sm font-medium mb-1 block text-foreground">Nome do agente *</label>
           <input value={form.name} onChange={e => setField('name', e.target.value)} required
             placeholder="Ex: Atendimento Bot"
             className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 px-6 pt-4 border-b border-border pb-0">
+        {/* Tabs — scrollable on mobile */}
+        <div className="flex gap-0.5 px-4 sm:px-6 pt-4 border-b border-border pb-0 overflow-x-auto scrollbar-none">
           {TABS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-medium rounded-t-lg transition-colors border-b-2 -mb-px whitespace-nowrap shrink-0 ${
                 activeTab === key
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className="w-3.5 h-3.5 shrink-0" />
               {label}
             </button>
           ))}
@@ -331,7 +331,7 @@ function AgentModal({ agent, onClose }: { agent?: Agent; onClose: () => void }) 
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="px-6 py-5 space-y-4">
+          <div className="px-4 sm:px-6 py-5 space-y-4">
 
             {/* GERAL - Instruções */}
             {activeTab === 'geral' && (
@@ -364,7 +364,7 @@ function AgentModal({ agent, onClose }: { agent?: Agent; onClose: () => void }) 
                     Modelos GPT requerem OPENAI_API_KEY · Modelos Claude requerem ANTHROPIC_API_KEY
                   </p>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="text-sm font-medium mb-1 block text-foreground">Debounce (ms)</label>
                     <input type="number" value={form.debounce_ms} onChange={e => setField('debounce_ms', Number(e.target.value))}
@@ -528,7 +528,7 @@ function AgentModal({ agent, onClose }: { agent?: Agent; onClose: () => void }) 
             <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-sm text-destructive">{error}</div>
           </div>
         )}
-        <div className="px-6 pb-5 pt-2 flex gap-2 justify-end border-t border-border">
+        <div className="px-4 sm:px-6 pb-5 pt-2 flex gap-2 justify-end border-t border-border">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted text-foreground">Cancelar</button>
           <button onClick={() => mutation.mutate()} disabled={mutation.isPending || !form.name}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-60">

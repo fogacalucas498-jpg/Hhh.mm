@@ -36,7 +36,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [loc] = useLocation();
   const { user, logout } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
-  const { notifications, toasts, unreadCount, markAllRead, dismissToast } = useNotifications();
+  const { notifications, toasts, unreadCount, markAllRead, clearAll, dismissToast } = useNotifications();
   const [open, setOpen] = useState(false);
   const [notifPanel, setNotifPanel] = useState(false);
 
@@ -151,9 +151,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           style={{ maxHeight: '400px' }}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <span className="font-semibold text-sm">Notificações</span>
-            <button onClick={() => setNotifPanel(false)} className="p-1 rounded-lg hover:bg-muted">
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              {notifications.length > 0 && (
+                <button
+                  onClick={clearAll}
+                  className="text-xs text-muted-foreground hover:text-destructive px-2 py-1 rounded-lg hover:bg-muted transition-colors"
+                >
+                  Limpar tudo
+                </button>
+              )}
+              <button onClick={() => setNotifPanel(false)} className="p-1 rounded-lg hover:bg-muted">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="overflow-y-auto scrollbar-thin" style={{ maxHeight: '340px' }}>
             {notifications.length === 0 ? (
