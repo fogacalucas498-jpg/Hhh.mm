@@ -7,6 +7,19 @@ const wa = require('../lib/wa-manager');
 const { requireAuth, limiters } = require('../lib/middleware');
 const { dispatch, VALID_EVENTS, MAX_WEBHOOKS_PER_USER } = require('../lib/webhook-dispatcher');
 const broadcastLib = require('../lib/broadcast');
+const { importContacts, MAX_ROWS } = require('../lib/csv-import');
+const multer = require('multer');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 }, // 5 MB max
+  fileFilter: (_req, file, cb) => {
+    const ok = file.mimetype === 'text/csv'
+      || file.mimetype === 'text/plain'
+      || file.originalname.endsWith('.csv');
+    cb(ok ? null : new Error('Apenas arquivos .csv são aceitos.'), ok);
+  },
+});
 
 // Health checks — must be before requireAuth so the deployment probe can reach them
 router.get('/', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()) }));
@@ -368,12 +381,45 @@ router.post('/messages/send', async (req, res) => {
 // ── CONTACTS ──────────────────────────────────────────────────────────────────
 router.get('/contacts', async (req, res) => {
   try {
-    const r = await db.query(
-      'SELECT * FROM contacts WHERE user_id=$1 ORDER BY name ASC',
-      [req.userId]
-    );
+    const { search, limit = 100, offset = 0 } = req.query;
+    let q = 'SELECT * FROM contacts WHERE user_id=$1';
+    const vals = [req.userId];
+    if (search) {
+      q += ` AND (name ILIKE $${vals.length + 1} OR phone ILIKE $${vals.length + 1})`;
+      vals.push(`%${search}%`);
+    }
+    q += ` ORDER BY name ASC LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`;
+    vals.push(Math.min(Number(limit), 500), Number(offset));
+    const r = await db.query(q, vals);
     res.json({ contacts: r.rows });
   } catch (e) { handleApiError(res, e); }
+});
+
+router.post('/contacts/import', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Envie um arquivo CSV no campo "file".' });
+    }
+    const csvText = req.file.buffer.toString('utf-8');
+    const result = await importContacts(req.userId, csvText);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    // multer error (wrong file type, too large)
+    if (e.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'Arquivo muito grande. Máximo 5 MB.' });
+    }
+    handleApiError(res, e);
+  }
+});
+
+router.get('/contacts/import/template', (_req, res) => {
+  const csv = 'phone,name,tags\n5511999999999,João Silva,cliente;vip\n5521888888888,Maria Souza,lead\n5531777777777,Carlos Lima,';
+  res.set({
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': 'attachment; filename="contatos_template.csv"',
+  });
+  res.send(csv);
 });
 
 // ── GROUP BOTS ────────────────────────────────────────────────────────────────
