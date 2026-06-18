@@ -158,6 +158,25 @@ const MIGRATIONS = [
         UNIQUE(device_id, contact_jid)
       );
     `
+  },
+  {
+    id: 3,
+    name: 'webhooks',
+    sql: `
+      CREATE TABLE IF NOT EXISTS webhooks (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        url TEXT NOT NULL,
+        secret TEXT,
+        events TEXT[] NOT NULL DEFAULT '{}',
+        enabled BOOLEAN NOT NULL DEFAULT true,
+        last_triggered_at TIMESTAMPTZ,
+        last_status INTEGER,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS webhooks_user ON webhooks(user_id);
+    `
   }
 ];
 

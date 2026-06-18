@@ -16,6 +16,8 @@ const agentsLib = require('./agents');
 const { getOpenAI } = require('./openai-client');
 const { getBreaker } = require('./breaker');
 
+const { dispatch } = require('./webhook-dispatcher');
+
 const appLogger = pino({ level: process.env.LOG_LEVEL || 'info' });
 const logger = pino({ level: 'silent' });
 
@@ -100,6 +102,7 @@ async function sendText(userId, deviceId, jid, text, { agentId } = {}) {
   await e.sock.sendMessage(jid, { text });
   await saveMessage({ userId, deviceId, agentId, contactJid: jid, direction: 'out', body: text });
   emitSse(userId, 'message', { deviceId, jid, direction: 'out', body: text });
+  dispatch(userId, 'message.sent', { deviceId, jid, direction: 'out', body: text, agentId: agentId || null }).catch(() => {});
 }
 
 async function sendMedia(userId, deviceId, jid, opts, { agentId } = {}) {
@@ -139,6 +142,7 @@ async function handleIncoming(userId, deviceId, agentId, sock, m) {
   await upsertContact(userId, jid, senderName);
   await saveMessage({ userId, deviceId, agentId, contactJid: jid, direction: 'in', body: body || `[${msgType}]`, msgType, waMsgId: m.key.id });
   emitSse(userId, 'message', { deviceId, jid, direction: 'in', body, msgType, senderName });
+  dispatch(userId, 'message.received', { deviceId, jid, direction: 'in', body: body || `[${msgType}]`, msgType, senderName, agentId: agentId || null }).catch(() => {});
 
   const agent = await agentsLib.getAgent(userId, agentId).catch(() => null);
   if (!agent || !agent.enabled) return;
@@ -350,6 +354,7 @@ async function startDevice(userId, deviceId) {
           entry.status = 'qr';
           await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['qr', deviceId]);
           emitSse(userId, 'device_qr', { deviceId, qr: qrDataUrl });
+          dispatch(userId, 'device.qr', { deviceId }).catch(() => {});
         } catch (e) {
           appLogger.warn({ event: 'qr_generate_error', deviceId, err: e.message });
         }
@@ -370,6 +375,7 @@ async function startDevice(userId, deviceId) {
         }
         appLogger.info({ event: 'device_connected', deviceId, phone });
         emitSse(userId, 'device_status', { deviceId, status: 'connected', phone });
+        dispatch(userId, 'device.connected', { deviceId, phone }).catch(() => {});
       }
 
       if (connection === 'close') {
@@ -383,6 +389,7 @@ async function startDevice(userId, deviceId) {
           appLogger.warn({ event: 'db_update_disconnected_failed', deviceId, err: e.message });
         }
         emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
+        dispatch(userId, 'device.disconnected', { deviceId }).catch(() => {});
         appLogger.info({ event: 'device_disconnected', deviceId, code, shouldReconnect });
 
         if (shouldReconnect) {
@@ -586,6 +593,7 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
     await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId])
       .catch(() => {});
     emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
+    dispatch(userId, 'device.disconnected', { deviceId }).catch(() => {});
   };
 
   // --- Connection lifecycle handler ---
@@ -607,6 +615,7 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
         }
         appLogger.info({ event: 'device_connected_pairing', deviceId, phone });
         emitSse(userId, 'device_status', { deviceId, status: 'connected', phone });
+        dispatch(userId, 'device.connected', { deviceId, phone }).catch(() => {});
 
         sock.ev.on('messages.upsert', async ({ messages: msgs, type }) => {
           try {

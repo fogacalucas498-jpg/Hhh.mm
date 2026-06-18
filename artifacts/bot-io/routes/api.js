@@ -5,6 +5,7 @@ const db = require('../lib/db');
 const agentsLib = require('../lib/agents');
 const wa = require('../lib/wa-manager');
 const { requireAuth, limiters } = require('../lib/middleware');
+const { dispatch, VALID_EVENTS, MAX_WEBHOOKS_PER_USER } = require('../lib/webhook-dispatcher');
 
 // Health checks — must be before requireAuth so the deployment probe can reach them
 router.get('/', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()) }));
@@ -464,6 +465,104 @@ router.get('/stats', async (req, res) => {
       },
     });
   } catch (e) { handleApiError(res, e); }
+});
+
+// ── WEBHOOKS ──────────────────────────────────────────────────────────────────
+router.get('/webhooks', async (req, res) => {
+  try {
+    const r = await db.query(
+      'SELECT * FROM webhooks WHERE user_id=$1 ORDER BY id DESC',
+      [req.userId]
+    );
+    res.json({ webhooks: r.rows });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.post('/webhooks', async (req, res) => {
+  try {
+    const { url, secret, events = [] } = req.body;
+    if (!url) return res.status(400).json({ error: 'url é obrigatório.' });
+    try { new URL(url); } catch (_) {
+      return res.status(400).json({ error: 'url inválida. Use uma URL completa (ex: https://...).' });
+    }
+    if (!Array.isArray(events)) {
+      return res.status(400).json({ error: 'events deve ser um array.' });
+    }
+    const invalid = events.filter(e => !VALID_EVENTS.has(e));
+    if (invalid.length) {
+      return res.status(400).json({ error: `Eventos inválidos: ${invalid.join(', ')}. Válidos: ${[...VALID_EVENTS].join(', ')}` });
+    }
+    const count = await db.query('SELECT COUNT(*)::int AS n FROM webhooks WHERE user_id=$1', [req.userId]);
+    if (count.rows[0].n >= MAX_WEBHOOKS_PER_USER) {
+      return res.status(400).json({ error: `Limite de ${MAX_WEBHOOKS_PER_USER} webhooks por conta atingido.` });
+    }
+    const r = await db.query(
+      'INSERT INTO webhooks(user_id, url, secret, events) VALUES($1,$2,$3,$4) RETURNING *',
+      [req.userId, url, secret || null, events]
+    );
+    res.status(201).json({ webhook: r.rows[0] });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.patch('/webhooks/:id', async (req, res) => {
+  try {
+    const { url, secret, events, enabled } = req.body;
+    const updates = [];
+    const vals = [];
+    if (url !== undefined) {
+      try { new URL(url); } catch (_) {
+        return res.status(400).json({ error: 'url inválida.' });
+      }
+      updates.push(`url=$${vals.length + 1}`); vals.push(url);
+    }
+    if (secret !== undefined) { updates.push(`secret=$${vals.length + 1}`); vals.push(secret || null); }
+    if (enabled !== undefined) { updates.push(`enabled=$${vals.length + 1}`); vals.push(!!enabled); }
+    if (events !== undefined) {
+      if (!Array.isArray(events)) return res.status(400).json({ error: 'events deve ser um array.' });
+      const invalid = events.filter(e => !VALID_EVENTS.has(e));
+      if (invalid.length) return res.status(400).json({ error: `Eventos inválidos: ${invalid.join(', ')}` });
+      updates.push(`events=$${vals.length + 1}`); vals.push(events);
+    }
+    if (!updates.length) return res.status(400).json({ error: 'Nada para atualizar.' });
+    vals.push(req.params.id, req.userId);
+    const r = await db.query(
+      `UPDATE webhooks SET ${updates.join(',')} WHERE id=$${vals.length - 1} AND user_id=$${vals.length} RETURNING *`,
+      vals
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Webhook não encontrado.' });
+    res.json({ webhook: r.rows[0] });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.delete('/webhooks/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM webhooks WHERE id=$1 AND user_id=$2', [req.params.id, req.userId]);
+    res.json({ ok: true });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.post('/webhooks/:id/test', async (req, res) => {
+  try {
+    const r = await db.query(
+      'SELECT * FROM webhooks WHERE id=$1 AND user_id=$2',
+      [req.params.id, req.userId]
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Webhook não encontrado.' });
+    await dispatch(req.userId, 'message.received', {
+      deviceId: null,
+      jid: '5511999999999@s.whatsapp.net',
+      direction: 'in',
+      body: 'Mensagem de teste do bot 777',
+      msgType: 'text',
+      senderName: 'Teste',
+      _test: true,
+    });
+    res.json({ ok: true, message: 'Evento de teste disparado.' });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.get('/webhooks/events', (_req, res) => {
+  res.json({ events: [...VALID_EVENTS] });
 });
 
 // SSE
