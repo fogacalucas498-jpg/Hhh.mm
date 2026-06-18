@@ -1,0 +1,585 @@
+# PROMPT — REVISÃO E CORREÇÃO COMPLETA DO PROJETO BOT.IO
+# Cole este prompt diretamente no Replit AI
+
+---
+
+Você é um engenheiro sênior Node.js especialista em bots WhatsApp com Baileys, APIs de IA e PostgreSQL no Replit. Realize uma **revisão e correção cirúrgica completa** deste projeto, seguindo EXATAMENTE cada item abaixo, sem pular nenhum. Este projeto roda no **plano gratuito do Replit (single-process, sem Redis, sem Docker, sem TypeScript build)** — mantenha essa restrição em mente em todas as correções.
+
+---
+
+## BLOCO 1 — VALIDAÇÃO DE VARIÁVEIS DE AMBIENTE (CRÍTICO)
+
+**Arquivo: `server.js`** — Adicione no início, ANTES de qualquer `require` de lib interna, uma função de validação das env vars obrigatórias:
+
+```js
+// Validação de ambiente na inicialização
+const REQUIRED_ENV = ['DATABASE_URL', 'SESSION_SECRET'];
+const WARN_ENV = ['AI_INTEGRATIONS_OPENAI_API_KEY', 'PORT'];
+for (const v of REQUIRED_ENV) {
+  if (!process.env[v]) {
+    console.error(`[FATAL] Variável de ambiente obrigatória não definida: ${v}`);
+    process.exit(1);
+  }
+}
+for (const v of WARN_ENV) {
+  if (!process.env[v]) {
+    console.warn(`[WARN] Variável de ambiente recomendada não definida: ${v}`);
+  }
+}
+```
+
+---
+
+## BLOCO 2 — CORRIGIR `lib/openai-client.js` (BUG CRÍTICO DE API KEY)
+
+**Problema:** O singleton `_client` é criado com `apiKey: undefined` se a env var não estiver definida, causando erros obscuros. Além disso, se a chave mudar em runtime (configurada pelo usuário), o singleton antigo com chave inválida nunca é atualizado.
+
+**Correção completa do arquivo `lib/openai-client.js`:**
+
+```js
+'use strict';
+
+const OpenAI = require('openai');
+
+let _client = null;
+let _lastKey = null;
+
+/**
+ * Retorna instância OpenAI. Reconstrói se a chave mudou.
+ * Lança erro claro se a chave não está configurada.
+ */
+function getOpenAI() {
+  const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (!key) {
+    const err = new Error(
+      'Chave OpenAI não configurada. Adicione AI_INTEGRATIONS_OPENAI_API_KEY nas variáveis de ambiente (Secrets no Replit).'
+    );
+    err.code = 'NO_OPENAI_KEY';
+    throw err;
+  }
+  // Reconstrói se a chave mudou (usuário atualizou em runtime)
+  if (!_client || _lastKey !== key) {
+    _lastKey = key;
+    _client = new OpenAI({
+      apiKey: key,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
+      timeout: 30000,      // 30s timeout explícito
+      maxRetries: 2,       // retry automático em 429/503
+    });
+  }
+  return _client;
+}
+
+module.exports = { getOpenAI };
+```
+
+---
+
+## BLOCO 3 — CORRIGIR `lib/llm.js` (TIMEOUT + RETRY + ERRO DE CHAVE)
+
+**Problemas:**
+- `anthropicChat` usa `fetch` nativo sem timeout — se a API travar, a requisição fica pendurada para sempre.
+- Não há retry em erros transitórios (429, 503).
+- Erros de API expõem detalhes técnicos crus.
+
+**Correções a aplicar em `lib/llm.js`:**
+
+1. Na função `anthropicChat`, adicione timeout via `AbortController`:
+
+```js
+async function anthropicChat({ key, model, system, messages, maxTokens, temperature, signal }) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000); // 30s timeout
+  const combinedSignal = signal || ctrl.signal;
+
+  try {
+    const body = {
+      model,
+      max_tokens: maxTokens,
+      messages: messages.map(m => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: String(m.content || '')
+      }))
+    };
+    if (system) body.system = system;
+    if (typeof temperature === 'number') body.temperature = temperature;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(body),
+      signal: combinedSignal
+    });
+
+    clearTimeout(timer);
+
+    if (resp.status === 401) {
+      const err = new Error('Chave da Anthropic inválida ou expirada. Verifique em Integrações.');
+      err.code = 'INVALID_ANTHROPIC_KEY';
+      throw err;
+    }
+    if (resp.status === 429) {
+      const err = new Error('Limite de requisições Anthropic atingido. Aguarde alguns segundos.');
+      err.code = 'RATE_LIMITED';
+      throw err;
+    }
+    if (!resp.ok) {
+      const t = await resp.text().catch(() => '');
+      throw new Error(`Anthropic ${resp.status}: ${t.slice(0, 150)}`);
+    }
+
+    const j = await resp.json();
+    return j.content?.[0]?.text?.trim() || null;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error('Timeout na API Anthropic (30s). Tente novamente.');
+    }
+    throw err;
+  }
+}
+```
+
+2. Na função `openaiChat`, adicione tratamento de erro 401 explícito:
+
+```js
+async function openaiChat({ model, system, messages, maxTokens, temperature, signal }) {
+  let openai;
+  try {
+    openai = getOpenAI();
+  } catch (e) {
+    throw e; // Repassa erro de chave não configurada
+  }
+
+  const msgs = [];
+  if (system) msgs.push({ role: 'system', content: system });
+  for (const m of messages) msgs.push({ role: m.role, content: String(m.content || '') });
+
+  const isReasoning = REASONING_MODELS.has(model);
+  const params = { model, messages: msgs };
+  if (isReasoning) {
+    params.max_completion_tokens = Math.max(maxTokens, 2000);
+  } else {
+    params.max_tokens = maxTokens;
+    if (typeof temperature === 'number') params.temperature = temperature;
+  }
+
+  try {
+    const resp = await openai.chat.completions.create(params, signal ? { signal } : undefined);
+    return resp.choices?.[0]?.message?.content?.trim() || null;
+  } catch (e) {
+    if (e.status === 401) {
+      const err = new Error('Chave OpenAI inválida ou expirada. Verifique em Integrações.');
+      err.code = 'INVALID_OPENAI_KEY';
+      throw err;
+    }
+    if (e.status === 429) {
+      const err = new Error('Limite de requisições OpenAI atingido. Aguarde e tente novamente.');
+      err.code = 'RATE_LIMITED';
+      throw err;
+    }
+    throw e;
+  }
+}
+```
+
+---
+
+## BLOCO 4 — CORRIGIR `lib/wa-manager.js` (MÚLTIPLOS BUGS CRÍTICOS)
+
+### 4.1 — Cache de versão do Baileys (reduz lag de conexão)
+
+`fetchLatestBaileysVersion()` faz chamada HTTP para os servidores do WhatsApp **toda vez** que um dispositivo conecta, causando lentidão e possíveis falhas de rede. Adicione cache de 1 hora no topo do arquivo:
+
+```js
+// Cache da versão Baileys — evita chamada de rede em cada reconexão
+let _baileysVersion = null;
+let _baileysVersionFetchedAt = 0;
+
+async function getBaileysVersion() {
+  const AGE_MS = 60 * 60 * 1000; // 1 hora
+  if (_baileysVersion && (Date.now() - _baileysVersionFetchedAt) < AGE_MS) {
+    return _baileysVersion;
+  }
+  try {
+    const { version } = await fetchLatestBaileysVersion();
+    _baileysVersion = version;
+    _baileysVersionFetchedAt = Date.now();
+    return version;
+  } catch (e) {
+    appLogger.warn({ event: 'baileys_version_fetch_failed', err: e.message });
+    // Usa versão em cache se disponível, mesmo expirada
+    if (_baileysVersion) return _baileysVersion;
+    // Fallback para versão conhecida estável
+    return [2, 3000, 1015901307];
+  }
+}
+```
+
+Substitua `const { version } = await fetchLatestBaileysVersion();` por `const version = await getBaileysVersion();` dentro de `startDevice`.
+
+### 4.2 — Corrigir `restoreAll` (não tentar restaurar dispositivos presos em 'connecting')
+
+```js
+async function restoreAll() {
+  // Só restaura 'connected' — 'connecting' e 'qr' indicam estado incerto
+  // que pode ter sido interrompido pelo restart do processo
+  const r = await db.query(
+    `SELECT d.id, d.user_id FROM agent_devices d
+     WHERE d.status = 'connected'`
+  );
+  // Reseta status dos que estavam presos em 'connecting'/'qr' para 'disconnected'
+  await db.query(
+    `UPDATE agent_devices SET status='disconnected'
+     WHERE status IN ('connecting', 'qr')`
+  ).catch(() => {});
+
+  for (const row of r.rows) {
+    const k = key(row.id);
+    if (sockets.has(k) && sockets.get(k).status === 'connected') continue;
+    // Delay escalonado para não sobrecarregar ao restaurar múltiplos dispositivos
+    await new Promise(res => setTimeout(res, 1000));
+    startDevice(row.user_id, row.id).catch(e =>
+      appLogger.error({ event: 'restore_failed', deviceId: row.id, err: e.message })
+    );
+  }
+}
+```
+
+### 4.3 — Corrigir análise de imagem na visão (vision analysis)
+
+Substitua o bloco da análise de imagem (dentro de `handleIncoming`, trecho com `await import('openai')`) pelo código abaixo, usando o `openai-client.js` centralizado:
+
+```js
+if (modelSupportsVision) {
+  try {
+    const imgBuf = await downloadMediaMessage(m, 'buffer', {}, { logger, reuploadRequest: sock.updateMediaMessage });
+    if (imgBuf) {
+      const b64 = imgBuf.toString('base64');
+      const mime = M.imageMessage.mimetype || 'image/jpeg';
+      const { getOpenAI } = require('./openai-client');
+      let openaiClient;
+      try { openaiClient = getOpenAI(); } catch (e) {
+        appLogger.warn({ event: 'vision_no_key', deviceId, err: e.message });
+        if (!body) body = '[Imagem recebida]';
+        openaiClient = null;
+      }
+      if (openaiClient) {
+        const vRes = await openaiClient.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: [
+            { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}`, detail: 'low' } },
+            { type: 'text', text: body || 'Descreva o que você vê nesta imagem de forma concisa.' }
+          ]}],
+          max_tokens: 400
+        });
+        const desc = vRes.choices?.[0]?.message?.content || '';
+        if (desc) body = body ? `${body}\n[Imagem: ${desc}]` : `[Imagem: ${desc}]`;
+      }
+    }
+  } catch (e) {
+    appLogger.warn({ event: 'vision_error', deviceId, err: e.message });
+    if (!body) body = '[Imagem recebida]';
+  }
+}
+```
+
+### 4.4 — Adicionar circuit breaker no `sendMedia`
+
+Logo no início de `sendMedia`, após verificar `e.status !== 'connected'`, adicione:
+
+```js
+const mediaBreaker = getBreaker(`wa_send_${deviceId}`, {
+  failureThreshold: 5,
+  resetTimeoutMs: 30_000,
+  fallback: () => { throw new Error('Circuito aberto para envio de mídia. Aguarde 30s.'); }
+});
+```
+
+E envolva o `e.sock.sendMessage(jid, opts)` com `await mediaBreaker.execute(() => e.sock.sendMessage(jid, opts))`.
+
+### 4.5 — Limpeza de SSE clients desconectados
+
+Na função `addSse`, adicione listener de `close` para remover conexões mortas automaticamente:
+
+```js
+function addSse(userId, res) {
+  if (!sseClients.has(userId)) sseClients.set(userId, new Set());
+  sseClients.get(userId).add(res);
+  res.write(`event: hello\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+  // Remove automaticamente ao desconectar
+  res.on('close', () => removeSse(userId, res));
+  res.on('error', () => removeSse(userId, res));
+}
+```
+
+### 4.6 — Tratar erro no `tryFlow` sem derrubar o fluxo principal
+
+Envolva a chamada de `tryFlow` em `handleIncoming` em try/catch individual:
+
+```js
+if (body) {
+  try {
+    const flowReply = await tryFlow(userId, body);
+    if (flowReply) {
+      await sendText(userId, deviceId, jid, flowReply, { agentId: agent.id });
+      return;
+    }
+  } catch (e) {
+    appLogger.warn({ event: 'flow_error', deviceId, err: e.message });
+    // Continua para o agente normalmente
+  }
+}
+```
+
+### 4.7 — Verificar `agent.enabled` no `handleGroupMessage`
+
+No início de `handleGroupMessage`, após buscar o agente, adicione:
+
+```js
+const agent = await agentsLib.getAgent(userId, groupBot.agent_id);
+if (!agent || !agent.enabled) return;
+```
+
+### 4.8 — Limpeza de debounce timers órfãos (prevenção de memory leak)
+
+Adicione função de limpeza e chame-a periodicamente no final de `wa-manager.js`:
+
+```js
+// Limpeza de timers de debounce órfãos (agentes deletados, contatos sumidos)
+function cleanDebounceOrphans() {
+  const MAX_TIMERS = 5000;
+  if (debounceTimers.size > MAX_TIMERS) {
+    appLogger.warn({ event: 'debounce_timer_overflow', count: debounceTimers.size });
+    for (const [k, t] of debounceTimers.entries()) {
+      clearTimeout(t);
+      debounceTimers.delete(k);
+      debounceBuffers.delete(k);
+    }
+  }
+}
+setInterval(cleanDebounceOrphans, 5 * 60 * 1000).unref(); // a cada 5 minutos
+```
+
+---
+
+## BLOCO 5 — CORRIGIR `routes/api.js` (ERROS DE API QUE NÃO CHEGAM AO CLIENTE)
+
+### 5.1 — Tratar erro de chave ausente/inválida nas rotas de agente
+
+Em qualquer rota que chame `llm.chatComplete` ou `agents.generateReply`, adicione tratamento específico de erro de API:
+
+```js
+} catch (e) {
+  if (e.code === 'NO_OPENAI_KEY' || e.code === 'NO_ANTHROPIC_KEY') {
+    return res.status(402).json({ error: e.message, code: e.code });
+  }
+  if (e.code === 'INVALID_OPENAI_KEY' || e.code === 'INVALID_ANTHROPIC_KEY') {
+    return res.status(401).json({ error: e.message, code: e.code });
+  }
+  if (e.code === 'RATE_LIMITED') {
+    return res.status(429).json({ error: e.message, code: e.code });
+  }
+  console.error('api error', e.message);
+  res.status(500).json({ error: 'Erro interno ao processar. Tente novamente.' });
+}
+```
+
+### 5.2 — Adicionar rota SSE com limpeza correta de conexão
+
+Na rota de SSE (se existir em `api.js`), garanta que o `req.on('close')` ou equivalente chame `wa.removeSse`:
+
+```js
+router.get('/events', (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.flushHeaders();
+  wa.addSse(req.userId, res);
+  // Cleanup automático ao fechar (já tratado dentro de addSse agora)
+});
+```
+
+---
+
+## BLOCO 6 — CORRIGIR `lib/db.js` (STATEMENT TIMEOUT EM MIGRAÇÕES)
+
+**Problema:** O `statement_timeout=15000` (15s) é definido globalmente no Pool e pode derrubar migrações longas que criam índices grandes.
+
+**Correção:** Em `lib/migrations.js`, use um client dedicado sem timeout para rodar as migrations:
+
+Adicione ao início de `runMigrations()`:
+
+```js
+// Client dedicado sem statement_timeout para migrations
+const client = await db.pool.connect();
+try {
+  await client.query('SET statement_timeout = 0');
+  // ... resto das migrations usando `client` em vez de `db.query`
+} finally {
+  client.release();
+}
+```
+
+---
+
+## BLOCO 7 — CORRIGIR `keep-alive.js` (PREVENÇÃO DE SLEEP NO REPLIT GRATUITO)
+
+**Problema:** O Replit gratuito hiberna após ~5 min de inatividade. O ping atual é de 4 em 4 minutos, mas pode ser insuficiente.
+
+**Correção completa do arquivo `keep-alive.js`:**
+
+```js
+'use strict';
+
+const APP_URL = process.env.REPLIT_DEV_DOMAIN
+  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+  : process.env.APP_URL || `http://localhost:${process.env.PORT || 5000}`;
+
+let _pingInterval = null;
+
+function startKeepAlive() {
+  if (_pingInterval) return; // Evita iniciar duas vezes
+  const url = `${APP_URL}/ping`;
+  console.log('[keep-alive] iniciado, URL:', url);
+
+  const doPing = async () => {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
+      const r = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (r.status !== 200) {
+        console.warn('[keep-alive] ping retornou status inesperado:', r.status);
+      }
+    } catch (e) {
+      console.warn('[keep-alive] ping falhou:', e.message);
+    }
+  };
+
+  // Primeiro ping após 20s
+  const first = setTimeout(() => {
+    doPing();
+    // Ping a cada 3 minutos (mais seguro que 4 para o Replit free)
+    _pingInterval = setInterval(doPing, 3 * 60 * 1000);
+  }, 20000);
+
+  // Permite que o processo encerre normalmente sem esperar o keep-alive
+  if (first.unref) first.unref();
+}
+
+function stopKeepAlive() {
+  if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
+}
+
+module.exports = { startKeepAlive, stopKeepAlive };
+```
+
+---
+
+## BLOCO 8 — OTIMIZAÇÃO DE PERFORMANCE PARA REPLIT GRATUITO
+
+### 8.1 — Paralelizar queries no `handleIncoming` de `wa-manager.js`
+
+As queries de contato e mensagem em `handleIncoming` são sequenciais. Paralelize onde possível:
+
+```js
+// Substitua as queries sequenciais de histórico+treinamento por Promise.all
+const [training, customFields, mediaList, history] = await Promise.all([
+  agentsLib.getTraining(agent.id),
+  agentsLib.getCustomFields(agent.id),
+  agentsLib.getMedia(agent.id),
+  db.query(
+    `SELECT direction, body FROM messages WHERE user_id=$1 AND contact_jid=$2 ORDER BY id DESC LIMIT 20`,
+    [userId, jid]
+  ).then(r => r.rows.reverse().map(row => ({
+    role: row.direction === 'in' ? 'user' : 'assistant',
+    content: row.body || ''
+  })).filter(r => r.content))
+]);
+```
+
+### 8.2 — Limite de tamanho de histórico por token (prevenção de custo)
+
+Em `lib/agents.js`, na função `generateReply`, antes de montar o array `messages` para enviar à API, implemente uma janela deslizante que corta o histórico se ficar muito grande:
+
+```js
+// Limita histórico a 30 mensagens ou ~8000 chars para não explodir o context e o custo
+function trimHistory(history, maxMsgs = 30, maxChars = 8000) {
+  let trimmed = history.slice(-maxMsgs);
+  let totalChars = trimmed.reduce((s, m) => s + (m.content || '').length, 0);
+  while (totalChars > maxChars && trimmed.length > 2) {
+    const removed = trimmed.shift();
+    totalChars -= (removed.content || '').length;
+  }
+  return trimmed;
+}
+```
+
+---
+
+## BLOCO 9 — CORREÇÕES DE SEGURANÇA
+
+### 9.1 — Session secret fraco
+
+Em `server.js`, o fallback `'botio-dev-secret-change-me'` para `SESSION_SECRET` é perigoso se alguém esquecer de configurar. Substitua o fallback por:
+
+```js
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret || sessionSecret.length < 32) {
+  console.error('[FATAL] SESSION_SECRET deve ter pelo menos 32 caracteres. Configure nos Secrets do Replit.');
+  process.exit(1);
+}
+```
+
+E remova o fallback `|| 'botio-dev-secret-change-me'` da configuração do `session()`.
+
+### 9.2 — Rate limit mais agressivo em auth
+
+Em `lib/middleware.js`, o rate limit de auth (`20/5min`) é razoável, mas o de API (`300/min`) é muito permissivo para Replit free. Reduza:
+
+```js
+api:     { windowMs: 60_000, max: 150 },   // 150 req/min (reduzido de 300)
+auth:    { windowMs: 5 * 60_000, max: 15 }, // 15 tentativas/5min (reduzido de 20)
+webhook: { windowMs: 60_000, max: 300 },
+```
+
+---
+
+## BLOCO 10 — VERIFICAÇÃO E TESTE FINAL
+
+Após todas as correções, realize as seguintes verificações:
+
+1. **Teste de startup:** Rode `node server.js` e confirme que os logs mostram:
+   - `server_started`
+   - `migrations` completando sem erro
+   - `restoreAll` executando sem travar
+
+2. **Teste de chave inválida:** Configure `AI_INTEGRATIONS_OPENAI_API_KEY=invalida` e tente enviar uma mensagem — o sistema deve retornar erro claro ao usuário, não travar.
+
+3. **Teste de conexão WhatsApp:**
+   - Conecte um dispositivo via QR
+   - Desconecte e reconecte — deve funcionar sem erros de lock
+   - Reinicie o servidor — sessão deve ser restaurada automaticamente
+
+4. **Teste de memória:** Acesse `/readyz` e confirme que `memory` está `ok`.
+
+5. **Verifique os logs** por qualquer `unhandled_rejection` ou `uncaught_exception`.
+
+---
+
+## REGRAS PARA O REPLIT AI SEGUIR DURANTE A CORREÇÃO
+
+- NÃO adicione dependências externas que não estejam no `package.json` (sem Redis, sem TypeScript, sem PM2)
+- NÃO altere a estrutura de tabelas do banco sem criar a migration correspondente em `lib/migrations.js`
+- NÃO quebre a compatibilidade com o Baileys `@whiskeysockets/baileys@7.0.0-rc13`
+- MANTENHA todos os logs estruturados existentes com `appLogger`
+- Em cada arquivo modificado, inclua um comentário `// CORRIGIDO: [descrição da correção]` na linha onde a mudança foi feita
+- Após cada bloco de correção, confirme que o arquivo salvo não tem erros de sintaxe rodando `node --check <arquivo>.js`
