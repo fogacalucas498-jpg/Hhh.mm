@@ -1,0 +1,1 @@
+- [Bot.io project](bot-io-project.md) — plain Node.js WhatsApp bot platform built in artifacts/bot-io/; requires DATABASE_URL + SESSION_SECRET (both set); AI key optional at startup.
