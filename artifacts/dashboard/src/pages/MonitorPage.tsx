@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, Device } from '@/lib/api';
+
+interface ServerStats {
+  uptime: number;
+  uptimeFormatted: string;
+  memory: { rssMb: number; heapUsedMb: number; heapTotalMb: number; limitMb: number };
+  devices: { total: number; connected: number };
+  messages: { total: number; last24h: number };
+  process: { pid: number; nodeVersion: string; platform: string };
+}
 import { useSSE } from '@/hooks/useSSE';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -9,7 +18,7 @@ import {
 import {
   Activity, Smartphone, MessageSquare, ArrowDownLeft, ArrowUpRight,
   Wifi, WifiOff, Loader2, RefreshCw, Trash2, Circle, TrendingUp,
-  Filter, Download, Volume2, VolumeX
+  Filter, Download, Volume2, VolumeX, Clock, Cpu, Server, Database
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -186,6 +195,92 @@ function buildBuckets(timestamps: Array<{ ts: Date; direction: 'in' | 'out' }>):
   return buckets;
 }
 
+// ─── Server stats bar ─────────────────────────────────────────────────────────
+
+function MemBar({ used, total, limit }: { used: number; total: number; limit: number }) {
+  const pct = Math.min((used / limit) * 100, 100);
+  const color = pct > 85 ? 'bg-red-500' : pct > 65 ? 'bg-yellow-500' : 'bg-emerald-500';
+  return (
+    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function ServerStatsBar({ stats, loading }: { stats: ServerStats | undefined; loading: boolean }) {
+  if (loading && !stats) {
+    return (
+      <div className="bg-card border border-border rounded-xl px-5 py-3 flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="w-3 h-3 animate-spin" />
+        Carregando métricas do servidor…
+      </div>
+    );
+  }
+  if (!stats) return null;
+
+  const memPct = Math.round((stats.memory.rssMb / stats.memory.limitMb) * 100);
+
+  return (
+    <div className="bg-card border border-border rounded-xl px-5 py-3 shadow-sm">
+      <div className="flex items-center gap-2 mb-3">
+        <Server className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-semibold text-foreground">Servidor</span>
+        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full ml-1">
+          PID {stats.process.pid} · {stats.process.nodeVersion} · {stats.process.platform}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+        {/* Uptime */}
+        <div className="flex items-start gap-2">
+          <Clock className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-foreground tabular-nums">{stats.uptimeFormatted}</p>
+            <p className="text-[10px] text-muted-foreground">uptime</p>
+          </div>
+        </div>
+
+        {/* Memory */}
+        <div className="flex items-start gap-2 col-span-1">
+          <Cpu className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+          <div className="w-full">
+            <div className="flex items-baseline justify-between">
+              <p className="text-xs font-semibold text-foreground tabular-nums">
+                {stats.memory.rssMb} MB
+              </p>
+              <p className="text-[10px] text-muted-foreground">{memPct}% de {stats.memory.limitMb} MB</p>
+            </div>
+            <MemBar used={stats.memory.rssMb} total={stats.memory.heapTotalMb} limit={stats.memory.limitMb} />
+            <p className="text-[10px] text-muted-foreground mt-0.5">heap {stats.memory.heapUsedMb}/{stats.memory.heapTotalMb} MB</p>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex items-start gap-2">
+          <Database className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-foreground tabular-nums">{stats.messages.total.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] text-muted-foreground">
+              msgs totais · <span className="text-foreground font-medium">{stats.messages.last24h}</span> últimas 24h
+            </p>
+          </div>
+        </div>
+
+        {/* Devices */}
+        <div className="flex items-start gap-2">
+          <Wifi className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-foreground tabular-nums">
+              {stats.devices.connected}/{stats.devices.total}
+            </p>
+            <p className="text-[10px] text-muted-foreground">dispositivos conectados</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Sparkline chart ──────────────────────────────────────────────────────────
 
 function VolumeChart({ buckets }: { buckets: MinuteBucket[] }) {
@@ -283,6 +378,13 @@ export default function MonitorPage() {
     queryKey: ['devices'],
     queryFn: () => api.get<{ devices: Device[] }>('/api/devices'),
     refetchInterval: 30_000,
+  });
+
+  // Server stats, refresh every 15s
+  const { data: serverStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['server-stats'],
+    queryFn: () => api.get<ServerStats>('/api/stats'),
+    refetchInterval: 15_000,
   });
 
   // Local device map so SSE can patch status without a full refetch
@@ -486,6 +588,9 @@ export default function MonitorPage() {
 
       {/* Volume chart */}
       <VolumeChart buckets={buckets} />
+
+      {/* Server stats */}
+      <ServerStatsBar stats={serverStats} loading={statsLoading} />
 
       <div className="grid lg:grid-cols-5 gap-6 items-start">
 

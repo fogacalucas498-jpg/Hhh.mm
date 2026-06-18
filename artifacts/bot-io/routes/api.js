@@ -406,6 +406,65 @@ router.delete('/group-bots/:id', async (req, res) => {
   } catch (e) { handleApiError(res, e); }
 });
 
+// ── SERVER STATS ──────────────────────────────────────────────────────────────
+router.get('/stats', async (req, res) => {
+  try {
+    const mem = process.memoryUsage();
+    const toMb = (b) => Math.round(b / 1024 / 1024);
+
+    // Count connected devices for this user
+    const devicesResult = await db.query(
+      'SELECT id FROM devices WHERE user_id=$1', [req.userId]
+    );
+    const deviceIds = devicesResult.rows.map(r => r.id);
+    let connectedDevices = 0;
+    for (const id of deviceIds) {
+      const s = wa.getDeviceStatus(id);
+      if (s.status === 'connected') connectedDevices++;
+    }
+
+    // Message counts
+    const [totalResult, last24hResult] = await Promise.all([
+      db.query('SELECT COUNT(*)::int AS n FROM messages WHERE user_id=$1', [req.userId]),
+      db.query(
+        "SELECT COUNT(*)::int AS n FROM messages WHERE user_id=$1 AND created_at > NOW() - INTERVAL '24 hours'",
+        [req.userId]
+      ),
+    ]);
+
+    const uptimeSeconds = Math.round(process.uptime());
+    const d = Math.floor(uptimeSeconds / 86400);
+    const h = Math.floor((uptimeSeconds % 86400) / 3600);
+    const m = Math.floor((uptimeSeconds % 3600) / 60);
+    const uptimeFormatted =
+      d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+
+    res.json({
+      uptime: uptimeSeconds,
+      uptimeFormatted,
+      memory: {
+        rssMb:       toMb(mem.rss),
+        heapUsedMb:  toMb(mem.heapUsed),
+        heapTotalMb: toMb(mem.heapTotal),
+        limitMb:     450,
+      },
+      devices: {
+        total:     deviceIds.length,
+        connected: connectedDevices,
+      },
+      messages: {
+        total:    totalResult.rows[0].n,
+        last24h:  last24hResult.rows[0].n,
+      },
+      process: {
+        pid:         process.pid,
+        nodeVersion: process.version,
+        platform:    process.platform,
+      },
+    });
+  } catch (e) { handleApiError(res, e); }
+});
+
 // SSE
 router.get('/events', (req, res) => {
   res.set({
