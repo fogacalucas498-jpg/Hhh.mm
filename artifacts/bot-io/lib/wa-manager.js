@@ -300,7 +300,7 @@ async function startDevice(userId, deviceId) {
     logger,
     auth: state,
     printQRInTerminal: false,
-    browser: ['Bot.io', 'Chrome', '1.0.0'],
+    browser: ['bot 777 🎰', 'Chrome', '1.0.0'],
   });
 
   const entry = { sock, status: 'connecting', userId, deviceId, qr: null };
@@ -464,7 +464,7 @@ async function getPairingCode(userId, deviceId, phoneNumber) {
     logger,
     auth: state,
     printQRInTerminal: false,
-    browser: ['Bot.io', 'Chrome', '1.0.0'],
+    browser: ['bot 777 🎰', 'Chrome', '1.0.0'],
   });
 
   const entry = { sock, status: 'connecting', userId, deviceId, qr: null };

@@ -1,6 +1,6 @@
-# [Project name]
+# bot 777 🎰
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Plataforma de automação de WhatsApp com agentes de I.A — conecte números, treine bots e atenda clientes automaticamente.
 
 ## Run & Operate
 

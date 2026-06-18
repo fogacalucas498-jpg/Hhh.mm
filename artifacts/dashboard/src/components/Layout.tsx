@@ -60,11 +60,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/5">
           <img
             src="/logo.jpg"
-            alt="Bot.io"
+            alt="bot 777 🎰"
             className="w-9 h-9 rounded-xl object-cover ring-1 ring-white/10"
           />
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-white text-sm tracking-tight">Bot.io</p>
+            <p className="font-bold text-white text-sm tracking-tight">bot 777 🎰</p>
             <p className="text-xs text-sidebar-foreground/50 truncate max-w-[120px]">{user?.name}</p>
           </div>
           {/* Theme toggle in sidebar */}
@@ -184,8 +184,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-muted">
             <Menu className="w-5 h-5" />
           </button>
-          <img src="/logo.jpg" alt="Bot.io" className="w-7 h-7 rounded-lg object-cover" />
-          <span className="font-bold text-sm flex-1">Bot.io</span>
+          <img src="/logo.jpg" alt="bot 777 🎰" className="w-7 h-7 rounded-lg object-cover" />
+          <span className="font-bold text-sm flex-1">bot 777 🎰</span>
           <button onClick={toggleTheme} className="p-1.5 rounded-lg hover:bg-muted" title="Alternar tema">
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>

@@ -4,8 +4,8 @@ import "./landing.css";
 
 const Logo = () => (
   <div className="nav-logo">
-    <img src="/logo.jpg" alt="Bot.io" />
-    <span className="nav-logo-text">Bot.io</span>
+    <img src="/logo.jpg" alt="bot 777 🎰" />
+    <span className="nav-logo-text">bot 777 🎰</span>
   </div>
 );
 
@@ -147,7 +147,7 @@ export default function LandingPage() {
             com <span className="text-gradient">Inteligência Artificial</span>
           </h1>
           <p className="hero-subtitle">
-            Com o <strong>Bot.io</strong>, crie agentes de I.A treinados com o conhecimento do seu negócio
+            Com o <strong>bot 777 🎰</strong>, crie agentes de I.A treinados com o conhecimento do seu negócio
             e atenda clientes no WhatsApp de forma automática, natural e eficiente. Sem código, sem complicação. <strong style={{ color: "#a78bfa" }}>100% grátis.</strong>
           </p>
           <div className="hero-actions">
@@ -207,7 +207,7 @@ export default function LandingPage() {
         <div className="container">
           <div className="section-tag">Perfeita Para Qualquer Negócio</div>
           <h2>A Plataforma completa<br />para agentes de I.A</h2>
-          <p className="section-subtitle">O Bot.io é uma plataforma focada na construção de agentes de I.A que resolvem as dores do seu cliente e aumentam seus lucros.</p>
+          <p className="section-subtitle">O bot 777 🎰 é uma plataforma focada na construção de agentes de I.A que resolvem as dores do seu cliente e aumentam seus lucros.</p>
           <div className="features-grid">
             <div className="feature-card feature-card--highlight">
               <div className="feature-icon">🚀</div>
@@ -220,7 +220,7 @@ export default function LandingPage() {
             {[
               ["🎛️","Controle que Reflete Excelência","Administre o conteúdo ensinado ao seu agente com o nosso editor poderoso e extremamente simples de usar."],
               ["📚","Embarque Conhecimento de Forma Simples","PDFs, sites, instruções ou perguntas frequentes — diversas formas de alimentar o conhecimento da sua empresa para o agente."],
-              ["🎙️","Entende e Responde em Áudio","Seus clientes mandam áudio? O Bot.io transcreve, entende e pode responder também em áudio com voz natural."],
+              ["🎙️","Entende e Responde em Áudio","Seus clientes mandam áudio? O bot 777 🎰 transcreve, entende e pode responder também em áudio com voz natural."],
               ["📊","Dashboards e Relatórios em Tempo Real","Acompanhe conversas, leads capturados e desempenho dos agentes com métricas claras e acionáveis."],
               ["🔁","Transferência para Humano","Quando o cliente precisar de um atendente humano, o agente transfere automaticamente com todo o contexto da conversa."],
             ].map(([icon, title, desc]) => (
@@ -238,7 +238,7 @@ export default function LandingPage() {
       <section className="how-it-works" id="como-funciona">
         <div className="container">
           <div className="section-tag">Simples do início ao fim</div>
-          <h2>Como o Bot.io Funciona</h2>
+          <h2>Como o bot 777 🎰 Funciona</h2>
           <p className="section-subtitle">Três passos para ter seu agente de I.A atendendo clientes no WhatsApp.</p>
           <div className="steps-grid">
             {[
@@ -297,7 +297,7 @@ export default function LandingPage() {
           </div>
           <h2 style={{ textAlign: "center" }}>Tudo Grátis, Para Sempre</h2>
           <p className="section-subtitle" style={{ textAlign: "center", margin: "12px auto 0" }}>
-            O Bot.io é 100% gratuito. Sem planos, sem cartão de crédito, sem pegadinhas. Crie sua conta e comece agora.
+            O bot 777 🎰 é 100% gratuito. Sem planos, sem cartão de crédito, sem pegadinhas. Crie sua conta e comece agora.
           </p>
           <div className="free-grid">
             {[
@@ -334,10 +334,10 @@ export default function LandingPage() {
           <div className="faq-list">
             {[
               ["Como é feita a segurança dos dados?","Seus dados e chaves de API jamais serão utilizados para treinar novos modelos. Seguimos rigorosamente a LGPD. Todo o tráfego é criptografado com TLS/HTTPS."],
-              ["É possível o robô executar ações?","Sim! Via webhooks, o Bot.io pode acionar sistemas externos, atualizar CRMs, enviar notificações e muito mais sempre que uma condição for atingida na conversa."],
+              ["É possível o robô executar ações?","Sim! Via webhooks, o bot 777 🎰 pode acionar sistemas externos, atualizar CRMs, enviar notificações e muito mais sempre que uma condição for atingida na conversa."],
               ["Com quais documentos posso treinar meu agente?","PDFs, textos, URLs de sites, perguntas e respostas manuais, e em breve integração com Notion e Google Docs."],
-              ["Meu WhatsApp pode ser banido?","O Bot.io usa comportamento humanizado com delays variáveis para simular digitação real. Ainda assim, recomendamos usar números dedicados ao bot, não seu número pessoal."],
-              ["O Bot.io é realmente gratuito?","Sim, 100% gratuito. Sem planos pagos, sem cartão de crédito. Basta criar sua conta e começar a usar agora mesmo."],
+              ["Meu WhatsApp pode ser banido?","O bot 777 🎰 usa comportamento humanizado com delays variáveis para simular digitação real. Ainda assim, recomendamos usar números dedicados ao bot, não seu número pessoal."],
+              ["O bot 777 🎰 é realmente gratuito?","Sim, 100% gratuito. Sem planos pagos, sem cartão de crédito. Basta criar sua conta e começar a usar agora mesmo."],
             ].map(([q, a]) => (
               <details className="faq-item" key={q}>
                 <summary>{q}</summary>
@@ -368,8 +368,8 @@ export default function LandingPage() {
           <div className="footer-top">
             <div className="footer-brand">
               <div className="footer-logo">
-                <img src="/logo.jpg" alt="Bot.io" />
-                <span className="footer-logo-text">Bot.io</span>
+                <img src="/logo.jpg" alt="bot 777 🎰" />
+                <span className="footer-logo-text">bot 777 🎰</span>
               </div>
               <p>Atendimento inteligente no WhatsApp com I.A. Simples, eficiente e 100% gratuito.</p>
             </div>
@@ -388,7 +388,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="footer-bottom">
-            <p>Bot.io © 2026 · Todos os Direitos Reservados.</p>
+            <p>bot 777 🎰 © 2026 · Todos os Direitos Reservados.</p>
           </div>
         </div>
       </footer>

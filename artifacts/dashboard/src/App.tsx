@@ -26,7 +26,7 @@ function AppRoutes() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <img src="/logo.jpg" alt="Bot.io" className="w-12 h-12 rounded-2xl object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <img src="/logo.jpg" alt="bot 777 🎰" className="w-12 h-12 rounded-2xl object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       </div>

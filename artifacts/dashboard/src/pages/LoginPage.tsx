@@ -40,12 +40,12 @@ export default function LoginPage() {
       <div className="hidden lg:flex flex-col justify-between w-[420px] shrink-0 p-10"
         style={{ background: 'linear-gradient(160deg, #0f0f18 0%, #09090b 100%)', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center gap-3">
-          <img src="/logo.jpg" alt="Bot.io" className="w-10 h-10 rounded-xl object-cover" />
-          <span className="text-white font-bold text-lg tracking-tight">Bot.io</span>
+          <img src="/logo.jpg" alt="bot 777 🎰" className="w-10 h-10 rounded-xl object-cover" />
+          <span className="text-white font-bold text-lg tracking-tight">bot 777 🎰</span>
         </div>
         <div>
           <blockquote className="text-white/60 text-sm leading-relaxed italic mb-4">
-            "Automatizei 90% do meu atendimento com o Bot.io. Meus clientes adoraram a experiência."
+            "Automatizei 90% do meu atendimento com o bot 777 🎰. Meus clientes adoraram a experiência."
           </blockquote>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-purple-600/30 flex items-center justify-center text-purple-300 text-xs font-bold">M</div>
@@ -55,7 +55,7 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-        <p className="text-white/20 text-xs">Bot.io © 2026 · 100% Gratuito</p>
+        <p className="text-white/20 text-xs">bot 777 🎰 © 2026 · 100% Gratuito</p>
       </div>
 
       {/* Right panel — form */}
@@ -63,8 +63,8 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="flex items-center justify-center gap-3 mb-8 lg:hidden">
-            <img src="/logo.jpg" alt="Bot.io" className="w-10 h-10 rounded-xl object-cover" />
-            <span className="text-white font-bold text-xl tracking-tight">Bot.io</span>
+            <img src="/logo.jpg" alt="bot 777 🎰" className="w-10 h-10 rounded-xl object-cover" />
+            <span className="text-white font-bold text-xl tracking-tight">bot 777 🎰</span>
           </div>
 
           <h1 className="text-2xl font-bold text-white mb-1">
