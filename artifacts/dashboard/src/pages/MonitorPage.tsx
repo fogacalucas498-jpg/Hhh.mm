@@ -9,7 +9,7 @@ import {
 import {
   Activity, Smartphone, MessageSquare, ArrowDownLeft, ArrowUpRight,
   Wifi, WifiOff, Loader2, RefreshCw, Trash2, Circle, TrendingUp,
-  Filter
+  Filter, Download
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -386,6 +386,33 @@ export default function MonitorPage() {
     return devices.filter(d => seen.has(d.id));
   }, [messages, devices]);
 
+  // CSV export — depends on filteredMessages so defined after it
+  const exportCSV = useCallback(() => {
+    const rows = filteredMessages.slice().reverse(); // oldest first
+    const getDeviceName = (id: number | null) => (id != null ? deviceMap[id]?.name ?? `#${id}` : '');
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const header = ['Horário', 'Direção', 'Contato', 'Número', 'Mensagem', 'Tipo', 'Dispositivo'];
+    const lines = rows.map(m => [
+      escape(m.ts.toLocaleString('pt-BR')),
+      escape(m.direction === 'in' ? 'Recebida' : 'Enviada'),
+      escape(m.senderName ?? ''),
+      escape(m.contactJid.split('@')[0]),
+      escape(m.body ?? ''),
+      escape(m.msgType),
+      escape(getDeviceName(m.deviceId)),
+    ].join(','));
+    const csv = [header.join(','), ...lines].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const ts = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '-');
+    const suffix = filterDeviceId != null ? `_${deviceMap[filterDeviceId]?.name ?? filterDeviceId}` : '';
+    a.download = `monitor${suffix}_${ts}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filteredMessages, deviceMap, filterDeviceId]);
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
 
@@ -483,6 +510,16 @@ export default function MonitorPage() {
                 />
                 Auto-scroll
               </label>
+              {filteredMessages.length > 0 && (
+                <button
+                  onClick={exportCSV}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-muted"
+                  title={filterDeviceId != null ? `Exportar mensagens de ${deviceMap[filterDeviceId]?.name}` : 'Exportar todas as mensagens'}
+                >
+                  <Download className="w-3 h-3" />
+                  CSV
+                </button>
+              )}
               {messages.length > 0 && (
                 <button
                   onClick={() => { setMessages([]); setFilterDeviceId(null); tsBufferRef.current = []; setBuckets(buildBuckets([])); }}
