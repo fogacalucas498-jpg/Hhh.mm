@@ -8,7 +8,8 @@ import {
 } from 'recharts';
 import {
   Activity, Smartphone, MessageSquare, ArrowDownLeft, ArrowUpRight,
-  Wifi, WifiOff, Loader2, RefreshCw, Trash2, Circle, TrendingUp
+  Wifi, WifiOff, Loader2, RefreshCw, Trash2, Circle, TrendingUp,
+  Filter
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -303,6 +304,7 @@ export default function MonitorPage() {
   const [sessionCounts, setSessionCounts] = useState<Record<number, number>>({});
   const [autoScroll, setAutoScroll] = useState(true);
   const [sseConnected, setSseConnected] = useState(false);
+  const [filterDeviceId, setFilterDeviceId] = useState<number | null>(null);
 
   // Rolling timestamp buffer for the chart (last WINDOW_MINUTES + 1 minute for safety)
   const tsBufferRef = useRef<Array<{ ts: Date; direction: 'in' | 'out' }>>([]);
@@ -371,6 +373,18 @@ export default function MonitorPage() {
   const connected = useMemo(() => devices.filter(d => d.status === 'connected').length, [devices]);
   const msgsIn = useMemo(() => messages.filter(m => m.direction === 'in').length, [messages]);
   const msgsOut = useMemo(() => messages.filter(m => m.direction === 'out').length, [messages]);
+
+  // Filtered feed — null = show all
+  const filteredMessages = useMemo(
+    () => filterDeviceId === null ? messages : messages.filter(m => m.deviceId === filterDeviceId),
+    [messages, filterDeviceId]
+  );
+
+  // Devices that have produced at least one message this session (for filter pills)
+  const activeDevices = useMemo(() => {
+    const seen = new Set(messages.map(m => m.deviceId).filter(Boolean));
+    return devices.filter(d => seen.has(d.id));
+  }, [messages, devices]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -448,13 +462,14 @@ export default function MonitorPage() {
 
         {/* Live feed */}
         <div className="lg:col-span-3 bg-card border border-border rounded-xl shadow-sm flex flex-col" style={{ minHeight: 480 }}>
+          {/* Feed header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-muted-foreground" />
               Mensagens ao vivo
               {messages.length > 0 && (
                 <span className="text-[10px] font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                  {messages.length}/{MAX_MSGS}
+                  {filteredMessages.length}/{MAX_MSGS}
                 </span>
               )}
             </h2>
@@ -470,7 +485,7 @@ export default function MonitorPage() {
               </label>
               {messages.length > 0 && (
                 <button
-                  onClick={() => { setMessages([]); tsBufferRef.current = []; setBuckets(buildBuckets([])); }}
+                  onClick={() => { setMessages([]); setFilterDeviceId(null); tsBufferRef.current = []; setBuckets(buildBuckets([])); }}
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded-lg hover:bg-muted"
                   title="Limpar feed e gráfico"
                 >
@@ -481,15 +496,56 @@ export default function MonitorPage() {
             </div>
           </div>
 
+          {/* Device filter pills */}
+          {activeDevices.length > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-border/60 overflow-x-auto scrollbar-thin shrink-0">
+              <Filter className="w-3 h-3 text-muted-foreground shrink-0" />
+              <button
+                onClick={() => setFilterDeviceId(null)}
+                className={`shrink-0 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  filterDeviceId === null
+                    ? 'bg-primary text-primary-foreground border-primary font-medium'
+                    : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                }`}
+              >
+                Todos
+              </button>
+              {activeDevices.map(d => (
+                <button
+                  key={d.id}
+                  onClick={() => setFilterDeviceId(prev => prev === d.id ? null : d.id)}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    filterDeviceId === d.id
+                      ? 'bg-primary text-primary-foreground border-primary font-medium'
+                      : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground'
+                  }`}
+                >
+                  {d.status === 'connected' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
+                  )}
+                  {d.name}
+                  <span className="tabular-nums opacity-70">
+                    ({sessionCounts[d.id] ?? 0})
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Feed body */}
           <div className="flex-1 overflow-y-auto scrollbar-thin" style={{ maxHeight: 520 }}>
-            {messages.length === 0 ? (
+            {filteredMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center">
                 <RefreshCw className="w-8 h-8 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">Aguardando mensagens…</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">As mensagens aparecerão aqui em tempo real</p>
+                <p className="text-sm text-muted-foreground">
+                  {messages.length === 0 ? 'Aguardando mensagens…' : 'Nenhuma mensagem deste dispositivo ainda.'}
+                </p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  {messages.length === 0 ? 'As mensagens aparecerão aqui em tempo real' : 'Selecione "Todos" para ver o feed completo.'}
+                </p>
               </div>
             ) : (
-              messages.map(msg => <MsgRow key={msg.id} msg={msg} />)
+              filteredMessages.map(msg => <MsgRow key={msg.id} msg={msg} />)
             )}
           </div>
         </div>
