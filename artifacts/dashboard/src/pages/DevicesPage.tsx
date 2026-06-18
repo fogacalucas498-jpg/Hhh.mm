@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, Device, Agent } from '@/lib/api';
 import { useSSE } from '@/hooks/useSSE';
-import { Plus, Smartphone, QrCode, Wifi, WifiOff, Loader2, X, RefreshCw, LogOut, Trash2, ChevronDown } from 'lucide-react';
+import {
+  Plus, Smartphone, QrCode, Wifi, WifiOff, Loader2, X,
+  LogOut, Trash2, ChevronDown, KeyRound, Copy, CheckCheck
+} from 'lucide-react';
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { label: string; cls: string; dot: string }> = {
@@ -20,29 +23,142 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function QRModal({ deviceId, qr, onClose }: { deviceId: number; qr: string | null; onClose: () => void }) {
+function QRModal({ qr, onClose }: { qr: string | null; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="font-semibold">Conectar WhatsApp</h2>
+          <div>
+            <h2 className="font-semibold">Conectar via QR Code</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Escaneie com seu WhatsApp</p>
+          </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-6 text-center">
           {qr ? (
             <>
               <div className="inline-block p-3 bg-white border-2 border-primary/20 rounded-xl mb-4">
-                <img src={qr} alt="QR Code WhatsApp" className="w-48 h-48" />
+                <img src={qr} alt="QR Code WhatsApp" className="w-52 h-52" />
               </div>
               <p className="text-sm text-muted-foreground">
-                Abra o WhatsApp → Aparelhos conectados → Conectar aparelho
+                WhatsApp → <strong>Aparelhos conectados</strong> → <strong>Conectar aparelho</strong>
               </p>
             </>
           ) : (
-            <div className="py-8">
+            <div className="py-10">
               <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Gerando QR code...</p>
+              <p className="text-sm text-muted-foreground">Gerando QR Code…</p>
             </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PairingCodeModal({ deviceId, onClose }: { deviceId: number; onClose: () => void }) {
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const requestCode = async () => {
+    const clean = phone.replace(/\D/g, '');
+    if (clean.length < 10) {
+      setError('Digite o número completo com código do país (ex: 5511999999999)');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api.post<{ ok: boolean; code: string }>(`/api/devices/${deviceId}/pairing-code`, { phone: clean });
+      setCode(data.code);
+    } catch (e: unknown) {
+      setError((e as Error).message || 'Erro ao solicitar código');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyCode = async () => {
+    if (!code) return;
+    await navigator.clipboard.writeText(code.replace('-', ''));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div>
+            <h2 className="font-semibold">Conectar via Código</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Sem precisar escanear QR Code</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {!code ? (
+            <>
+              <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 text-sm text-foreground/70 space-y-1">
+                <p className="font-medium text-foreground">Como funciona:</p>
+                <p>1. Digite seu número abaixo</p>
+                <p>2. Copie o código gerado</p>
+                <p>3. No WhatsApp: <strong>Configurações → Aparelhos conectados → Conectar com número de telefone</strong></p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Número do WhatsApp</label>
+                <input
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="5511999999999 (com código do país)"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  type="tel"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Inclua o código do país. Brasil: 55 + DDD + número</p>
+              </div>
+              {error && (
+                <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg px-3 py-2">
+                  {error}
+                </div>
+              )}
+              <button
+                onClick={requestCode}
+                disabled={loading || !phone.replace(/\D/g, '')}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-60 hover:opacity-90 transition-opacity"
+              >
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando código…</> : <><KeyRound className="w-4 h-4" /> Gerar código</>}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="text-center py-2">
+                <p className="text-sm text-muted-foreground mb-4">Digite este código no seu WhatsApp:</p>
+                <div className="inline-flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-2xl px-8 py-5">
+                  <span className="text-4xl font-bold tracking-widest text-primary font-mono">{code}</span>
+                  <button onClick={copyCode} className="text-primary hover:opacity-70 transition-opacity" title="Copiar">
+                    {copied ? <CheckCheck className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-4">
+                  O código expira em 60 segundos
+                </p>
+              </div>
+              <div className="bg-muted/50 rounded-xl p-4 text-xs text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">No WhatsApp:</p>
+                <p>⚙️ Configurações → Aparelhos conectados</p>
+                <p>📱 Conectar com número de telefone</p>
+                <p>⌨️ Digite o código acima</p>
+              </div>
+              <button
+                onClick={() => { setCode(null); setPhone(''); }}
+                className="w-full px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted"
+              >
+                Gerar novo código
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -103,6 +219,7 @@ export default function DevicesPage() {
   const qc = useQueryClient();
   const [newModal, setNewModal] = useState(false);
   const [qrModal, setQrModal] = useState<{ id: number; qr: string | null } | null>(null);
+  const [pairingModal, setPairingModal] = useState<number | null>(null);
 
   const { data: devicesData, isLoading } = useQuery({ queryKey: ['devices'], queryFn: () => api.get<{ devices: Device[] }>('/api/devices') });
   const { data: agentsData } = useQuery({ queryKey: ['agents'], queryFn: () => api.get<{ agents: Agent[] }>('/api/agents') });
@@ -110,7 +227,6 @@ export default function DevicesPage() {
   const devices = devicesData?.devices ?? [];
   const agents = agentsData?.agents ?? [];
 
-  // SSE for real-time updates
   useSSE(true, (event, data: unknown) => {
     const d = data as Record<string, unknown>;
     if (event === 'device_status') {
@@ -118,11 +234,14 @@ export default function DevicesPage() {
         if (!old) return old;
         return {
           devices: old.devices.map(dev =>
-            dev.id === d.deviceId ? { ...dev, status: String(d.status), phone: d.phone ? String(d.phone) : dev.phone } : dev
+            dev.id === d.deviceId
+              ? { ...dev, status: String(d.status), phone: d.phone ? String(d.phone) : dev.phone }
+              : dev
           )
         };
       });
       if (d.status === 'connected' && qrModal?.id === Number(d.deviceId)) setQrModal(null);
+      if (d.status === 'connected' && pairingModal === Number(d.deviceId)) setPairingModal(null);
     }
     if (event === 'device_qr') {
       if (qrModal?.id === Number(d.deviceId)) setQrModal({ id: Number(d.deviceId), qr: String(d.qr) });
@@ -141,7 +260,7 @@ export default function DevicesPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['devices'] }),
   });
 
-  const logout = useMutation({
+  const doLogout = useMutation({
     mutationFn: (id: number) => api.post(`/api/devices/${id}/logout`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['devices'] }),
   });
@@ -186,25 +305,37 @@ export default function DevicesPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-sm">{d.name}</h3>
-                    <p className="text-xs text-muted-foreground">{d.phone ?? 'Sem número'}</p>
+                    <p className="text-xs text-muted-foreground">{d.phone ? `+${d.phone}` : 'Sem número'}</p>
                     {agent && <p className="text-xs text-primary mt-0.5">Agente: {agent.name}</p>}
                   </div>
                 </div>
                 <StatusBadge status={d.status} />
               </div>
 
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
+              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border flex-wrap">
                 {d.status === 'disconnected' && (
-                  <button onClick={() => connect.mutate(d.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:opacity-90">
-                    <QrCode className="w-3.5 h-3.5" /> Conectar
-                  </button>
+                  <>
+                    <button onClick={() => connect.mutate(d.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:opacity-90">
+                      <QrCode className="w-3.5 h-3.5" /> QR Code
+                    </button>
+                    <button onClick={() => setPairingModal(d.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500 text-white text-xs font-medium hover:opacity-90">
+                      <KeyRound className="w-3.5 h-3.5" /> Via Código
+                    </button>
+                  </>
                 )}
                 {(d.status === 'qr' || d.status === 'connecting') && (
-                  <button onClick={() => setQrModal({ id: d.id, qr: d.qr ?? null })}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 text-white text-xs font-medium">
-                    <QrCode className="w-3.5 h-3.5" /> Ver QR
-                  </button>
+                  <>
+                    <button onClick={() => setQrModal({ id: d.id, qr: d.qr ?? null })}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 text-white text-xs font-medium">
+                      <QrCode className="w-3.5 h-3.5" /> Ver QR
+                    </button>
+                    <button onClick={() => setPairingModal(d.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted">
+                      <KeyRound className="w-3.5 h-3.5" /> Via Código
+                    </button>
+                  </>
                 )}
                 {d.status === 'connected' && (
                   <>
@@ -212,7 +343,7 @@ export default function DevicesPage() {
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted">
                       <WifiOff className="w-3.5 h-3.5" /> Desconectar
                     </button>
-                    <button onClick={() => { if (confirm('Fazer logout do WhatsApp?')) logout.mutate(d.id); }}
+                    <button onClick={() => { if (confirm('Fazer logout e remover sessão do WhatsApp?')) doLogout.mutate(d.id); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted">
                       <LogOut className="w-3.5 h-3.5" /> Logout
                     </button>
@@ -229,7 +360,8 @@ export default function DevicesPage() {
       </div>
 
       {newModal && <NewDeviceModal agents={agents} onClose={() => setNewModal(false)} />}
-      {qrModal && <QRModal deviceId={qrModal.id} qr={qrModal.qr} onClose={() => setQrModal(null)} />}
+      {qrModal && <QRModal qr={qrModal.qr} onClose={() => setQrModal(null)} />}
+      {pairingModal !== null && <PairingCodeModal deviceId={pairingModal} onClose={() => setPairingModal(null)} />}
     </div>
   );
 }

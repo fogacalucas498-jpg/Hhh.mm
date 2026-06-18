@@ -1,6 +1,7 @@
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { NotificationsProvider } from "@/hooks/useNotifications";
 import Layout from "@/components/Layout";
 import LoginPage from "@/pages/LoginPage";
 import LandingPage from "@/pages/LandingPage";
@@ -24,7 +25,7 @@ function AppRoutes() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#09090b' }}>
         <div className="flex flex-col items-center gap-4">
-          <img src="/logo.jpg" alt="Bot.io" className="w-12 h-12 rounded-2xl object-cover" />
+          <img src="/logo.jpg" alt="Bot.io" className="w-12 h-12 rounded-2xl object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
@@ -42,20 +43,22 @@ function AppRoutes() {
   }
 
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={DashboardPage} />
-        <Route path="/agents" component={AgentsPage} />
-        <Route path="/devices" component={DevicesPage} />
-        <Route path="/messages" component={MessagesPage} />
-        <Route path="/contacts" component={ContactsPage} />
-        <Route path="/flows" component={FlowsPage} />
-        <Route path="/settings" component={SettingsPage} />
-        <Route path="/profile" component={ProfilePage} />
-        <Route path="/login"><Redirect to="/" /></Route>
-        <Route><Redirect to="/" /></Route>
-      </Switch>
-    </Layout>
+    <NotificationsProvider>
+      <Layout>
+        <Switch>
+          <Route path="/" component={DashboardPage} />
+          <Route path="/agents" component={AgentsPage} />
+          <Route path="/devices" component={DevicesPage} />
+          <Route path="/messages" component={MessagesPage} />
+          <Route path="/contacts" component={ContactsPage} />
+          <Route path="/flows" component={FlowsPage} />
+          <Route path="/settings" component={SettingsPage} />
+          <Route path="/profile" component={ProfilePage} />
+          <Route path="/login"><Redirect to="/" /></Route>
+          <Route><Redirect to="/" /></Route>
+        </Switch>
+      </Layout>
+    </NotificationsProvider>
   );
 }
 

@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
+import { useNotifications } from '@/hooks/useNotifications';
 import {
   LayoutDashboard, Bot, Smartphone, MessageSquare,
-  Users, Zap, Settings, LogOut, Menu, UserCircle
+  Users, Zap, Settings, LogOut, Menu, Bell, X,
+  MessageCircle, Wifi, WifiOff, Info
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -15,10 +17,26 @@ const nav = [
   { to: '/flows', icon: Zap, label: 'Fluxos' },
 ];
 
+function NotifIcon({ type }: { type: string }) {
+  if (type === 'message') return <MessageCircle className="w-4 h-4 text-primary shrink-0" />;
+  if (type === 'device_connected') return <Wifi className="w-4 h-4 text-green-600 shrink-0" />;
+  if (type === 'device_disconnected') return <WifiOff className="w-4 h-4 text-red-500 shrink-0" />;
+  return <Info className="w-4 h-4 text-muted-foreground shrink-0" />;
+}
+
+function timeAgo(date: Date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60) return 'agora';
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  return `${Math.floor(s / 3600)}h`;
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [loc] = useLocation();
   const { user, logout } = useAuth();
+  const { notifications, toasts, unreadCount, markAllRead, dismissToast } = useNotifications();
   const [open, setOpen] = useState(false);
+  const [notifPanel, setNotifPanel] = useState(false);
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
@@ -73,11 +91,25 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Bottom */}
         <div className="px-3 pb-4 border-t border-white/5 pt-4 space-y-0.5">
+          {/* Notifications bell */}
+          <button
+            onClick={() => { setNotifPanel(v => !v); if (unreadCount > 0) markAllRead(); }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent transition-colors relative"
+          >
+            <Bell className="w-4 h-4" />
+            Notificações
+            {unreadCount > 0 && (
+              <span className="ml-auto bg-primary text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
           <Link href="/profile" onClick={() => setOpen(false)}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors
               ${loc === '/profile'
                 ? 'bg-sidebar-primary text-white'
-                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent transition-colors'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent'
               }`}>
             <div className="w-5 h-5 rounded-full bg-sidebar-primary/40 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
               {initials}
@@ -101,6 +133,38 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
+      {/* Notifications panel (floating, beside sidebar) */}
+      {notifPanel && (
+        <div className="fixed z-40 left-64 bottom-16 w-80 bg-white rounded-2xl shadow-2xl border border-border overflow-hidden"
+          style={{ maxHeight: '400px' }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <span className="font-semibold text-sm">Notificações</span>
+            <button onClick={() => setNotifPanel(false)} className="p-1 rounded-lg hover:bg-muted">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="overflow-y-auto scrollbar-thin" style={{ maxHeight: '340px' }}>
+            {notifications.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                Nenhuma notificação
+              </div>
+            ) : (
+              notifications.map(n => (
+                <div key={n.id} className={`flex gap-3 px-4 py-3 border-b border-border/50 last:border-0 ${n.read ? '' : 'bg-primary/3'}`}>
+                  <NotifIcon type={n.type} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{n.title}</p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{n.body}</p>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">{timeAgo(n.timestamp)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar (mobile) */}
@@ -109,11 +173,43 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5" />
           </button>
           <img src="/logo.jpg" alt="Bot.io" className="w-7 h-7 rounded-lg object-cover" />
-          <span className="font-bold text-sm">Bot.io</span>
+          <span className="font-bold text-sm flex-1">Bot.io</span>
+          <button
+            onClick={() => { setNotifPanel(v => !v); if (unreadCount > 0) markAllRead(); }}
+            className="relative p-1.5 rounded-lg hover:bg-muted"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 bg-primary text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
         </header>
-        <main className="flex-1 overflow-y-auto scrollbar-thin">
+        <main className="flex-1 overflow-y-auto scrollbar-thin relative">
           {children}
         </main>
+      </div>
+
+      {/* Toast notifications — fixed bottom-right */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none" style={{ maxWidth: 340 }}>
+        {toasts.map(t => (
+          <div key={t.id}
+            className="pointer-events-auto flex items-start gap-3 bg-white border border-border rounded-xl shadow-lg px-4 py-3 animate-in slide-in-from-right-4 fade-in duration-300"
+          >
+            <NotifIcon type={t.type} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">{t.title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t.body}</p>
+            </div>
+            <button
+              onClick={() => dismissToast(t.id)}
+              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

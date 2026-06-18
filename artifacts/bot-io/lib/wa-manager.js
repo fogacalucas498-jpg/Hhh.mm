@@ -415,9 +415,111 @@ function cleanDebounceOrphans() {
 }
 setInterval(cleanDebounceOrphans, 5 * 60 * 1000).unref();
 
+async function getPairingCode(userId, deviceId, phoneNumber) {
+  const k = key(deviceId);
+
+  const existing = sockets.get(k);
+  if (existing && existing.status === 'connected') {
+    throw new Error('Dispositivo já conectado. Faça logout primeiro para reconectar via código.');
+  }
+
+  if (existing) {
+    try { existing.sock.end(); } catch (_) {}
+    sockets.delete(k);
+  }
+
+  // Clear session — pairing code requires fresh (unregistered) auth state
+  const sessionDir = path.join(SESSIONS_DIR, `device_${deviceId}`);
+  fs.rmSync(sessionDir, { recursive: true, force: true });
+  fs.mkdirSync(sessionDir, { recursive: true });
+
+  const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+  const version = await getBaileysVersion();
+
+  const sock = makeWASocket({
+    version,
+    logger,
+    auth: state,
+    printQRInTerminal: false,
+    browser: ['Bot.io', 'Chrome', '1.0.0'],
+  });
+
+  const entry = { sock, status: 'connecting', userId, deviceId, qr: null };
+  sockets.set(k, entry);
+
+  await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['connecting', deviceId]);
+  emitSse(userId, 'device_status', { deviceId, status: 'connecting' });
+
+  sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
+    if (connection === 'open') {
+      entry.status = 'connected';
+      entry.qr = null;
+      const phone = sock.user?.id?.split(':')[0] || null;
+      await db.query(
+        'UPDATE agent_devices SET status=$1, phone=$2, updated_at=NOW() WHERE id=$3',
+        ['connected', phone, deviceId]
+      );
+      appLogger.info({ event: 'device_connected_pairing', deviceId, phone });
+      emitSse(userId, 'device_status', { deviceId, status: 'connected', phone });
+    }
+    if (connection === 'close') {
+      const code = lastDisconnect?.error?.output?.statusCode;
+      const shouldReconnect = code !== DisconnectReason.loggedOut;
+      entry.status = 'disconnected';
+      await db.query('UPDATE agent_devices SET status=$1 WHERE id=$2', ['disconnected', deviceId]);
+      emitSse(userId, 'device_status', { deviceId, status: 'disconnected' });
+      appLogger.info({ event: 'device_disconnected_pairing', deviceId, code, shouldReconnect });
+      if (shouldReconnect) {
+        await new Promise(r => setTimeout(r, 5000));
+        startDevice(userId, deviceId).catch(e =>
+          appLogger.error({ event: 'reconnect_failed_pairing', deviceId, err: e.message })
+        );
+      } else {
+        sockets.delete(k);
+        fs.rmSync(sessionDir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  sock.ev.on('messages.upsert', async ({ messages: msgs, type }) => {
+    if (type !== 'notify') return;
+    for (const m of msgs) {
+      if (!m.message) continue;
+      const jid = m.key.remoteJid || '';
+      const deviceRow = await db.query('SELECT agent_id FROM agent_devices WHERE id=$1', [deviceId]);
+      const agentId = deviceRow.rows[0]?.agent_id;
+      if (!agentId) continue;
+      if (jid.endsWith('@g.us')) {
+        handleGroupMessage(userId, deviceId, sock, m).catch(e =>
+          appLogger.error({ event: 'group_msg_error', deviceId, err: e.message })
+        );
+      } else {
+        handleIncoming(userId, deviceId, agentId, sock, m).catch(e =>
+          appLogger.error({ event: 'incoming_error', deviceId, err: e.message })
+        );
+      }
+    }
+  });
+
+  // Validate phone
+  const clean = phoneNumber.replace(/[^0-9]/g, '');
+  if (clean.length < 10) {
+    throw new Error('Número inválido. Use o formato internacional sem + (ex: 5511999999999).');
+  }
+
+  // Give socket time to initialize before requesting pairing code
+  await new Promise(r => setTimeout(r, 2000));
+
+  const code = await sock.requestPairingCode(clean);
+  return code; // e.g. "ABCD-1234"
+}
+
 module.exports = {
   startDevice, stopDevice, logoutDevice, restoreAll,
   sendText, sendMedia,
   addSse, removeSse, emitSse,
   getDeviceStatus,
+  getPairingCode,
 };

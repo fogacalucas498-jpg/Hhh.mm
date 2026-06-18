@@ -85,13 +85,18 @@ export default function FlowsPage() {
   const { data: agentsData } = useQuery({ queryKey: ['agents'], queryFn: () => api.get<{ agents: Agent[] }>('/api/agents') });
   const agents = agentsData?.agents ?? [];
 
+  // Fix: include agent IDs in queryKey so query refetches when agents change
+  const agentIds = agents.map(a => a.id);
   const { data: allFlows, isLoading } = useQuery({
-    queryKey: ['flows'],
+    queryKey: ['flows', agentIds],
     queryFn: async () => {
-      const all = await Promise.all(agents.map(a => api.get<{ flows: Flow[] }>(`/api/agents/${a.id}/flows`)));
+      if (agentIds.length === 0) return [];
+      const all = await Promise.all(
+        agentIds.map(id => api.get<{ flows: Flow[] }>(`/api/agents/${id}/flows`))
+      );
       return all.flatMap(r => r.flows);
     },
-    enabled: agents.length > 0,
+    enabled: agentIds.length > 0,
   });
 
   const deleteFlow = useMutation({

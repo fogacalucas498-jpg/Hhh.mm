@@ -193,6 +193,23 @@ router.post('/devices/:id/logout', async (req, res) => {
   } catch (e) { handleApiError(res, e); }
 });
 
+router.post('/devices/:id/pairing-code', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'phone é obrigatório.' });
+    const r = await db.query(
+      'SELECT * FROM agent_devices WHERE id=$1 AND user_id=$2',
+      [req.params.id, req.userId]
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Dispositivo não encontrado.' });
+    const code = await wa.getPairingCode(req.userId, req.params.id, phone);
+    res.json({ ok: true, code });
+  } catch (e) {
+    console.error('[api] pairing-code error:', e.message);
+    res.status(500).json({ error: e.message || 'Erro ao solicitar código de pareamento.' });
+  }
+});
+
 // ── MESSAGES ──────────────────────────────────────────────────────────────────
 router.get('/messages', async (req, res) => {
   try {
