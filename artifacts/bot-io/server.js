@@ -2,7 +2,7 @@
 
 // CORRIGIDO: validação de env vars ANTES de qualquer require interno
 const REQUIRED_ENV = ['DATABASE_URL', 'SESSION_SECRET'];
-const WARN_ENV = ['AI_INTEGRATIONS_OPENAI_API_KEY', 'PORT'];
+const WARN_ENV = ['OPENAI_API_KEY', 'PORT'];
 for (const v of REQUIRED_ENV) {
   if (!process.env[v]) {
     console.error(`[FATAL] Variável de ambiente obrigatória não definida: ${v}`);
@@ -49,33 +49,34 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
-  // CORRIGIDO: sem fallback inseguro — sessionSecret já validado acima
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000
   }
 }));
 
-// Saúde / keep-alive
+// Rotas montadas em /bot (prefix do proxy Replit)
+const BASE = '/bot';
+
+app.get(`${BASE}/ping`, (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.get('/ping', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+app.get(`${BASE}/healthz`, (_req, res) => res.json({ ok: true, uptime: process.uptime() }));
 app.get('/healthz', (_req, res) => res.json({ ok: true, uptime: process.uptime() }));
-app.get('/readyz', (_req, res) => {
+app.get(`${BASE}/readyz`, (_req, res) => {
   const mem = process.memoryUsage();
   const memMb = Math.round(mem.rss / 1024 / 1024);
   const memOk = memMb < 450;
-  res.status(memOk ? 200 : 503).json({
-    ok: memOk,
-    memory: memOk ? 'ok' : 'high',
-    memoryMb: memMb,
-    uptime: Math.round(process.uptime()),
-  });
+  res.status(memOk ? 200 : 503).json({ ok: memOk, memory: memOk ? 'ok' : 'high', memoryMb: memMb, uptime: Math.round(process.uptime()) });
 });
 
+app.use(`${BASE}/auth`, authRouter);
 app.use('/auth', authRouter);
+app.use(`${BASE}/api`, apiRouter);
 app.use('/api', apiRouter);
 
 // 404 handler

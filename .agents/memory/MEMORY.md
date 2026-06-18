@@ -1,1 +1,2 @@
 - [Bot.io project](bot-io-project.md) — plain Node.js WhatsApp bot platform built in artifacts/bot-io/; requires DATABASE_URL + SESSION_SECRET (both set); AI key optional at startup.
+- [Bot.io routing](bot-io-routing.md) — /bot/* paths proxied via Vite (dashboard vite.config.ts) to port 5000; bot-io NOT registered as Replit artifact to avoid port conflict with "Bot.io Server" workflow.

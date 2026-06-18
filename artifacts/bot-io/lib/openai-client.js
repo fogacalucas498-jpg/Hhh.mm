@@ -7,10 +7,11 @@ let _client = null;
 let _lastKey = null;
 
 function getOpenAI() {
-  const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  // CORRIGIDO: aceita OPENAI_API_KEY ou AI_INTEGRATIONS_OPENAI_API_KEY
+  const key = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   if (!key) {
     const err = new Error(
-      'Chave OpenAI não configurada. Adicione AI_INTEGRATIONS_OPENAI_API_KEY nas variáveis de ambiente (Secrets no Replit).'
+      'Chave OpenAI não configurada. Adicione OPENAI_API_KEY nas variáveis de ambiente (Secrets no Replit).'
     );
     err.code = 'NO_OPENAI_KEY';
     throw err;
