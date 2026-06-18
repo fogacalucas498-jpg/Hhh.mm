@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, Device } from '@/lib/api';
 import { useSSE } from '@/hooks/useSSE';
 import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend
+} from 'recharts';
+import {
   Activity, Smartphone, MessageSquare, ArrowDownLeft, ArrowUpRight,
-  Wifi, WifiOff, Loader2, RefreshCw, Trash2, Circle
+  Wifi, WifiOff, Loader2, RefreshCw, Trash2, Circle, TrendingUp
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -21,14 +25,24 @@ interface LiveMessage {
   ts: Date;
 }
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
+interface MinuteBucket {
+  label: string;   // "14:32"
+  minuteKey: number; // epoch floored to minute
+  in: number;
+  out: number;
+  total: number;
+}
+
+// ─── Status config ────────────────────────────────────────────────────────────
 
 const STATUS_CFG: Record<string, { label: string; badgeCls: string; dotCls: string; icon: React.ElementType }> = {
-  connected:    { label: 'Conectado',     badgeCls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',   dotCls: 'bg-green-500 animate-pulse', icon: Wifi },
-  connecting:   { label: 'Conectando…',   badgeCls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', dotCls: 'bg-yellow-400',              icon: Loader2 },
-  qr:           { label: 'Aguard. QR',    badgeCls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',       dotCls: 'bg-blue-500 animate-pulse',  icon: Smartphone },
-  disconnected: { label: 'Desconectado',  badgeCls: 'bg-muted text-muted-foreground',                                          dotCls: 'bg-muted-foreground/40',     icon: WifiOff },
+  connected:    { label: 'Conectado',    badgeCls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',    dotCls: 'bg-green-500 animate-pulse', icon: Wifi },
+  connecting:   { label: 'Conectando…',  badgeCls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', dotCls: 'bg-yellow-400',              icon: Loader2 },
+  qr:           { label: 'Aguard. QR',   badgeCls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',        dotCls: 'bg-blue-500 animate-pulse',  icon: Smartphone },
+  disconnected: { label: 'Desconectado', badgeCls: 'bg-muted text-muted-foreground',                                           dotCls: 'bg-muted-foreground/40',     icon: WifiOff },
 };
+
+// ─── Status badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CFG[status] ?? STATUS_CFG.disconnected;
@@ -91,18 +105,14 @@ function MsgRow({ msg }: { msg: LiveMessage }) {
   const time = msg.ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   return (
-    <div className="flex items-start gap-3 px-4 py-2.5 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors group">
-      {/* Direction icon */}
+    <div className="flex items-start gap-3 px-4 py-2.5 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
       <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
         isIn ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
               : 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
       }`}>
-        {isIn
-          ? <ArrowDownLeft className="w-3 h-3" />
-          : <ArrowUpRight className="w-3 h-3" />}
+        {isIn ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="text-xs font-semibold text-foreground truncate max-w-[120px]" title={label}>{label}</span>
@@ -115,8 +125,147 @@ function MsgRow({ msg }: { msg: LiveMessage }) {
         </p>
       </div>
 
-      {/* Time */}
       <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5 tabular-nums">{time}</span>
+    </div>
+  );
+}
+
+// ─── Custom tooltip for chart ─────────────────────────────────────────────────
+
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string; color: string }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-card border border-border rounded-xl shadow-lg px-3 py-2 text-xs">
+      <p className="font-semibold text-foreground mb-1">{label}</p>
+      {payload.map(p => (
+        <div key={p.name} className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full inline-block" style={{ background: p.color }} />
+          <span className="text-muted-foreground">{p.name}:</span>
+          <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const WINDOW_MINUTES = 15;
+
+function floorToMinute(d: Date): number {
+  return Math.floor(d.getTime() / 60_000) * 60_000;
+}
+
+function buildBuckets(timestamps: Array<{ ts: Date; direction: 'in' | 'out' }>): MinuteBucket[] {
+  const now = Date.now();
+  const buckets: MinuteBucket[] = [];
+
+  for (let i = WINDOW_MINUTES - 1; i >= 0; i--) {
+    const minuteKey = Math.floor((now - i * 60_000) / 60_000) * 60_000;
+    const d = new Date(minuteKey);
+    buckets.push({
+      label: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      minuteKey,
+      in: 0,
+      out: 0,
+      total: 0,
+    });
+  }
+
+  for (const { ts, direction } of timestamps) {
+    const key = floorToMinute(ts);
+    const bucket = buckets.find(b => b.minuteKey === key);
+    if (bucket) {
+      if (direction === 'in') bucket.in++;
+      else bucket.out++;
+      bucket.total++;
+    }
+  }
+
+  return buckets;
+}
+
+// ─── Sparkline chart ──────────────────────────────────────────────────────────
+
+function VolumeChart({ buckets }: { buckets: MinuteBucket[] }) {
+  const total = buckets.reduce((s, b) => s + b.total, 0);
+  const peak = Math.max(...buckets.map(b => b.total), 1);
+
+  return (
+    <div className="bg-card border border-border rounded-xl shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">Volume por minuto</h2>
+          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+            últimos {WINDOW_MINUTES} min
+          </span>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span>Total: <span className="font-semibold text-foreground tabular-nums">{total}</span></span>
+          <span>Pico: <span className="font-semibold text-foreground tabular-nums">{peak} msg/min</span></span>
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={160}>
+        <AreaChart data={buckets} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="gradIn" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="gradOut" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+            tickLine={false}
+            axisLine={false}
+            interval="preserveStartEnd"
+          />
+          <YAxis
+            allowDecimals={false}
+            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <Tooltip content={<ChartTooltip />} />
+          <Legend
+            iconType="circle"
+            iconSize={8}
+            wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+            formatter={(value: string) => (
+              <span style={{ color: 'hsl(var(--muted-foreground))' }}>{value}</span>
+            )}
+          />
+          <Area
+            type="monotone"
+            dataKey="in"
+            name="Recebidas"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            fill="url(#gradIn)"
+            dot={false}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
+          <Area
+            type="monotone"
+            dataKey="out"
+            name="Enviadas"
+            stroke="#22c55e"
+            strokeWidth={2}
+            fill="url(#gradOut)"
+            dot={false}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -152,22 +301,40 @@ export default function MonitorPage() {
   // Live message feed
   const [messages, setMessages] = useState<LiveMessage[]>([]);
   const [sessionCounts, setSessionCounts] = useState<Record<number, number>>({});
-  const feedRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [sseConnected, setSseConnected] = useState(false);
+
+  // Rolling timestamp buffer for the chart (last WINDOW_MINUTES + 1 minute for safety)
+  const tsBufferRef = useRef<Array<{ ts: Date; direction: 'in' | 'out' }>>([]);
+
+  // Chart buckets — recomputed every 10 seconds by a ticker
+  const [buckets, setBuckets] = useState<MinuteBucket[]>(() => buildBuckets([]));
+
+  // Rebuild buckets and prune old timestamps every 10s
+  useEffect(() => {
+    const tick = () => {
+      const cutoff = Date.now() - (WINDOW_MINUTES + 1) * 60_000;
+      tsBufferRef.current = tsBufferRef.current.filter(e => e.ts.getTime() > cutoff);
+      setBuckets(buildBuckets(tsBufferRef.current));
+    };
+    tick();
+    const id = setInterval(tick, 10_000);
+    return () => clearInterval(id);
+  }, []);
 
   const pushMessage = useCallback((msg: LiveMessage) => {
     setMessages(prev => [msg, ...prev].slice(0, MAX_MSGS));
     if (msg.deviceId != null) {
       setSessionCounts(prev => ({ ...prev, [msg.deviceId!]: (prev[msg.deviceId!] ?? 0) + 1 }));
     }
+    // Add to timestamp buffer and immediately refresh chart
+    tsBufferRef.current.push({ ts: msg.ts, direction: msg.direction });
+    setBuckets(buildBuckets(tsBufferRef.current));
   }, []);
 
   // SSE handler
   useSSE(true, useCallback((event: string, data: unknown) => {
-    if (event === 'hello') {
-      setSseConnected(true);
-    }
+    if (event === 'hello') setSseConnected(true);
 
     if (event === 'device_status') {
       const d = data as { id: number; status: string; phone?: string | null };
@@ -175,7 +342,6 @@ export default function MonitorPage() {
         if (!prev[d.id]) return prev;
         return { ...prev, [d.id]: { ...prev[d.id], status: d.status, phone: d.phone ?? prev[d.id].phone } };
       });
-      // Invalidate so the query cache stays fresh too
       queryClient.invalidateQueries({ queryKey: ['devices'] });
     }
 
@@ -199,15 +365,12 @@ export default function MonitorPage() {
     }
   }, [pushMessage, queryClient]));
 
-  // Mark SSE connected after mount (hello may arrive before state is ready)
-  useEffect(() => {
-    setSseConnected(true);
-  }, []);
+  useEffect(() => { setSseConnected(true); }, []);
 
-  const devices = Object.values(deviceMap);
-  const connected = devices.filter(d => d.status === 'connected').length;
-  const msgsIn = messages.filter(m => m.direction === 'in').length;
-  const msgsOut = messages.filter(m => m.direction === 'out').length;
+  const devices = useMemo(() => Object.values(deviceMap), [deviceMap]);
+  const connected = useMemo(() => devices.filter(d => d.status === 'connected').length, [devices]);
+  const msgsIn = useMemo(() => messages.filter(m => m.direction === 'in').length, [messages]);
+  const msgsOut = useMemo(() => messages.filter(m => m.direction === 'out').length, [messages]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -222,7 +385,6 @@ export default function MonitorPage() {
           <p className="text-sm text-muted-foreground mt-0.5">Status dos dispositivos e fluxo de mensagens ao vivo</p>
         </div>
 
-        {/* SSE indicator */}
         <div className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full border ${
           sseConnected
             ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
@@ -236,10 +398,10 @@ export default function MonitorPage() {
       {/* Stats bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Dispositivos',  value: `${devices.length}`, sub: 'total',          icon: Smartphone,    color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' },
-          { label: 'Conectados',    value: `${connected}`,      sub: 'agora',           icon: Wifi,          color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
-          { label: 'Recebidas',     value: `${msgsIn}`,         sub: 'esta sessão',     icon: ArrowDownLeft, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
-          { label: 'Enviadas',      value: `${msgsOut}`,        sub: 'esta sessão',     icon: ArrowUpRight,  color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' },
+          { label: 'Dispositivos', value: `${devices.length}`, sub: 'total',       icon: Smartphone,    color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' },
+          { label: 'Conectados',   value: `${connected}`,      sub: 'agora',        icon: Wifi,          color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
+          { label: 'Recebidas',    value: `${msgsIn}`,         sub: 'esta sessão',  icon: ArrowDownLeft, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
+          { label: 'Enviadas',     value: `${msgsOut}`,        sub: 'esta sessão',  icon: ArrowUpRight,  color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' },
         ].map(({ label, value, sub, icon: Icon, color }) => (
           <div key={label} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 shadow-sm">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
@@ -252,6 +414,9 @@ export default function MonitorPage() {
           </div>
         ))}
       </div>
+
+      {/* Volume chart */}
+      <VolumeChart buckets={buckets} />
 
       <div className="grid lg:grid-cols-5 gap-6 items-start">
 
@@ -305,9 +470,9 @@ export default function MonitorPage() {
               </label>
               {messages.length > 0 && (
                 <button
-                  onClick={() => setMessages([])}
+                  onClick={() => { setMessages([]); tsBufferRef.current = []; setBuckets(buildBuckets([])); }}
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded-lg hover:bg-muted"
-                  title="Limpar feed"
+                  title="Limpar feed e gráfico"
                 >
                   <Trash2 className="w-3 h-3" />
                   Limpar
@@ -316,11 +481,7 @@ export default function MonitorPage() {
             </div>
           </div>
 
-          <div
-            ref={feedRef}
-            className="flex-1 overflow-y-auto scrollbar-thin"
-            style={{ maxHeight: 520 }}
-          >
+          <div className="flex-1 overflow-y-auto scrollbar-thin" style={{ maxHeight: 520 }}>
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center">
                 <RefreshCw className="w-8 h-8 text-muted-foreground/30 mb-3" />
