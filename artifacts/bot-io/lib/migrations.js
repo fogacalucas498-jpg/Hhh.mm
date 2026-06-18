@@ -160,6 +160,37 @@ const MIGRATIONS = [
     `
   },
   {
+    id: 4,
+    name: 'broadcasts',
+    sql: `
+      CREATE TABLE IF NOT EXISTS broadcasts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        device_id INTEGER REFERENCES agent_devices(id) ON DELETE SET NULL,
+        message TEXT NOT NULL,
+        delay_ms INTEGER NOT NULL DEFAULT 3000,
+        status TEXT NOT NULL DEFAULT 'pending',
+        total INTEGER NOT NULL DEFAULT 0,
+        sent INTEGER NOT NULL DEFAULT 0,
+        failed INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        started_at TIMESTAMPTZ,
+        finished_at TIMESTAMPTZ
+      );
+
+      CREATE TABLE IF NOT EXISTS broadcast_recipients (
+        id SERIAL PRIMARY KEY,
+        broadcast_id INTEGER NOT NULL REFERENCES broadcasts(id) ON DELETE CASCADE,
+        jid TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        error TEXT,
+        sent_at TIMESTAMPTZ
+      );
+
+      CREATE INDEX IF NOT EXISTS broadcast_recipients_broadcast ON broadcast_recipients(broadcast_id);
+    `
+  },
+  {
     id: 3,
     name: 'webhooks',
     sql: `

@@ -6,6 +6,7 @@ const agentsLib = require('../lib/agents');
 const wa = require('../lib/wa-manager');
 const { requireAuth, limiters } = require('../lib/middleware');
 const { dispatch, VALID_EVENTS, MAX_WEBHOOKS_PER_USER } = require('../lib/webhook-dispatcher');
+const broadcastLib = require('../lib/broadcast');
 
 // Health checks — must be before requireAuth so the deployment probe can reach them
 router.get('/', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()) }));
@@ -465,6 +466,43 @@ router.get('/stats', async (req, res) => {
       },
     });
   } catch (e) { handleApiError(res, e); }
+});
+
+// ── BROADCASTS ────────────────────────────────────────────────────────────────
+router.get('/broadcasts', async (req, res) => {
+  try {
+    const { limit, offset } = req.query;
+    const broadcasts = await broadcastLib.listBroadcasts(req.userId, { limit, offset });
+    res.json({ broadcasts });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.post('/broadcasts', async (req, res) => {
+  try {
+    const broadcast = await broadcastLib.createBroadcast(req.userId, req.body);
+    res.status(201).json({ broadcast });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    handleApiError(res, e);
+  }
+});
+
+router.get('/broadcasts/:id', async (req, res) => {
+  try {
+    const broadcast = await broadcastLib.getBroadcast(req.userId, req.params.id);
+    if (!broadcast) return res.status(404).json({ error: 'Broadcast não encontrado.' });
+    res.json({ broadcast });
+  } catch (e) { handleApiError(res, e); }
+});
+
+router.delete('/broadcasts/:id', async (req, res) => {
+  try {
+    await broadcastLib.cancelBroadcast(req.userId, req.params.id);
+    res.json({ ok: true, message: 'Broadcast cancelado.' });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    handleApiError(res, e);
+  }
 });
 
 // ── WEBHOOKS ──────────────────────────────────────────────────────────────────
